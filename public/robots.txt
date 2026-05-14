@@ -1,31 +1,22 @@
 User-agent: *
 Allow: /
 Disallow: /api/
-Disallow: /_next/
 Disallow: /search 
 Crawl-delay: 2
 
-# 🚫 บล็อก AI Bots ตัวสูบแบนด์วิธ (อิงจากกราฟ Vercel)
+# 🚫 กลุ่มบอท AI และบอท SEO ที่ต้องการบล็อกไม่ให้กินแบนด์วิธ
 User-agent: claude-searchbot
-Disallow: /
+User-agent: ClaudeBot
 User-agent: oai-searchbot
-Disallow: /
 User-agent: chatgpt-user
-Disallow: /
+User-agent: GPTBot
 User-agent: Applebot
-Disallow: /
-
-# 🚫 บล็อกบอท SEO (กินแบนด์วิธฟรี ไม่ช่วยเรื่อง SEO)
+User-agent: Applebot-Extended
 User-agent: SemrushBot
-Disallow: /
 User-agent: ahrefsbot
-Disallow: /
 User-agent: MJ12bot
-Disallow: /
 User-agent: DotBot
-Disallow: /
 User-agent: PetalBot
-Disallow: /
 User-agent: Rogerbot
 Disallow: /
 
