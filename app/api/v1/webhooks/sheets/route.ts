@@ -1,0 +1,161 @@
+import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// ==========================================
+// 📥 1. GET: สำหรับดึงข้อมูล (Sync & Backup)
+// ==========================================
+export async function GET(req: Request) {
+  try {
+    const apiKey = req.headers.get('x-api-key');
+    const secretKey = (process.env.SHEETS_SECRET_KEY || '').trim();
+
+    if (apiKey !== secretKey) {
+      return NextResponse.json({ error: 'Invalid API key' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const table = searchParams.get('table');
+
+    // 🌟 โหมด Backup: ดึงข้อมูลยกตาราง
+    if (table) {
+      const { data, error } = await supabase.from(table).select('*');
+      if (error) throw error;
+      return NextResponse.json(data);
+    } 
+    
+    // 🌟 โหมด Sync ปกติ: ดึงออเดอร์ที่ยังไม่ได้ซิงค์
+    else {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          id, customer_name, phone, created_at,
+          teams(*),
+          profiles(*),
+          order_items(
+            id, interest_level, note, images,
+            product_categories(name),
+            order_item_projects(
+              id, project_name, area_sqm, 
+              account_developer, contact_developer, 
+              account_architecture, contact_architecture, 
+              account_interior, contact_interior, 
+              account_contractor, contact_contractor,
+              is_deleted
+            )
+          )
+        `)
+        .eq('is_synced', false);
+
+      if (error) throw error;
+
+      // ==========================================
+      // 🛡️ กรองไม่ให้เอาข้อมูลที่ "ลบแล้ว" ส่งไปที่ Sheet
+      // ==========================================
+      const cleanData = (data || []).map((order: any) => {
+        const cleanItems = (order.order_items || []).map((item: any) => {
+          // เลือกเอาเฉพาะโปรเจกต์ที่ is_deleted ไม่ใช่ true
+          const cleanProjects = (item.order_item_projects || []).filter(
+            (proj: any) => proj.is_deleted !== true
+          );
+          return { ...item, order_item_projects: cleanProjects };
+        })
+        .filter((item: any) => item.order_item_projects.length > 0);
+
+        return { ...order, order_items: cleanItems };
+      })
+      .filter((order: any) => order.order_items.length > 0);
+
+      // คืนค่าข้อมูลเฉพาะตัวที่สะอาดให้ Sheet เอาไปลง
+      return NextResponse.json(cleanData);
+    }
+  } catch (error: any) {
+    console.error('API Error:', error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// ==========================================
+// 🚀 2. POST: สำหรับแก้ไขข้อมูล (Update, Mark Synced, Restore)
+// ==========================================
+export async function POST(req: Request) {
+  try {
+    const apiKey = req.headers.get('x-api-key');
+    if (apiKey !== (process.env.SHEETS_SECRET_KEY || '').trim()) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { action, payload } = body;
+
+    // ✅ Action: ยืนยันการซิงค์ออเดอร์
+    if (action === 'mark_synced') {
+      const { orderIds } = payload;
+      const { error } = await supabase.from('orders').update({ is_synced: true }).in('id', orderIds);
+      if (error) throw error;
+      return NextResponse.json({ success: true, message: 'Orders marked as synced' });
+    } 
+    
+    // ✅ Action: แก้ไขข้อมูลจาก Google Sheets
+    else if (action === 'update_project') {
+      const { id, updates } = payload; 
+
+      const itemFields = ['note', 'interest_level'];
+      const itemUpdates: any = {};
+      const projectUpdates: any = {};
+
+      Object.keys(updates).forEach(key => {
+        if (itemFields.includes(key)) {
+          itemUpdates[key] = updates[key];
+        } else {
+          projectUpdates[key] = updates[key];
+        }
+      });
+
+      if (Object.keys(projectUpdates).length > 0) {
+        const { error: projErr } = await supabase
+          .from('order_item_projects')
+          .update(projectUpdates)
+          .eq('id', id);
+        if (projErr) throw projErr;
+      }
+
+      if (Object.keys(itemUpdates).length > 0) {
+        const { data: proj, error: findErr } = await supabase
+          .from('order_item_projects')
+          .select('order_item_id')
+          .eq('id', id)
+          .single();
+
+        if (findErr) throw findErr;
+
+        if (proj?.order_item_id) {
+          const { error: itemErr } = await supabase
+            .from('order_items')
+            .update(itemUpdates)
+            .eq('id', proj.order_item_id);
+          if (itemErr) throw itemErr;
+        }
+      }
+
+      return NextResponse.json({ success: true, message: 'Updated successfully' });
+    }
+    
+    // ✅ Action: กู้คืนข้อมูล (Restore)
+    else if (action === 'restore_data') {
+      const { table, data } = payload;
+      const { error } = await supabase.from(table).upsert(data);
+      if (error) throw error;
+      return NextResponse.json({ success: true, message: `Restored ${table} successfully` });
+    }
+
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+
+  } catch (error: any) {
+    console.error('Webhook Error:', error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

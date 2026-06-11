@@ -1,7 +1,8 @@
 // app/collections/[slug]/page.tsx
 import React from 'react';
 import Link from 'next/link';
-import { supabaseBall } from '@/app/lib/supabase';
+// 1. เปลี่ยนการนำเข้าจาก supabaseBall เป็น supabase ตัวปกติครับนาย
+import { supabase } from '@/app/lib/supabase';
 // ✅ เช็ก Path ตรงนี้ให้ดีว่า Component อยู่ตรงไหน
 import VariantCarousel from '@/app/components/VariantCarousel';
 
@@ -23,7 +24,8 @@ export default async function CollectionDynamicPage({ params }: PageProps) {
   const { slug } = await params;
   const searchName = SLUG_TO_COLLECTION[slug] || slug.replace(/-/g, ' '); 
 
-  const { data: products, error } = await supabaseBall
+  // 2. เปลี่ยนตรงนี้จาก supabaseBall เป็น supabase ครับนาย เพื่อดึงข้อมูลจากตารางปกติ
+  const { data: products, error } = await supabase
     .from('products')
     .select(`
       *,

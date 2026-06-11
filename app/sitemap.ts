@@ -24,6 +24,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: route === '' ? 1 : 0.8,
   }))
 
+  if (!supabaseBall) {
+    return routes
+  }
+
   // 2. ดึงข้อมูลจาก Supabase
   const { data: products } = await supabaseBall
     .from('products')
