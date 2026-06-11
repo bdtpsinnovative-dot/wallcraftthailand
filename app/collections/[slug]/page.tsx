@@ -75,20 +75,22 @@ export default async function CollectionDynamicPage({ params }: PageProps) {
             return (
                 <div key={product.id} className="group bg-[#1e1e1e] flex flex-col md:flex-row overflow-hidden hover:border hover:border-[#c6a87c] transition-all duration-300 shadow-2xl">
                     
-                    <Link href={`/product/${product.id}`} className="md:flex-1 h-[400px] md:h-auto bg-black relative flex items-center justify-center overflow-hidden">
-                        <img src={defaultImg} alt={product.name} className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-500" />
-                        <div className="absolute bottom-4 left-4 z-10 bg-black/60 p-3 rounded border-l-2 border-[#c6a87c] backdrop-blur-md">
-                            <h3 className="text-white text-sm font-bold m-0">{firstVariant?.sku}</h3>
-                            <span className="text-white/70 text-[10px] block mt-1">{product.name}</span>
-                        </div>
-                    </Link>
+                    <Link href={`/product/${product.id}`} className="md:flex-1 min-h-[400px] md:min-h-[450px] bg-black relative overflow-hidden">
+    {/* สั่ง absolute inset-0 และ object-cover เพื่อให้รูปกางเต็มสี่เหลี่ยมผืนผ้าพอดีเป๊ะ */}
+    <img src={defaultImg} alt={product.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+    
+    <div className="absolute bottom-4 left-4 z-10 bg-black/60 p-3 rounded border-l-2 border-[#c6a87c] backdrop-blur-md">
+        <h3 className="text-white text-sm font-bold m-0">{firstVariant?.sku}</h3>
+        <span className="text-white/70 text-[10px] block mt-1">{product.name}</span>
+    </div>
+</Link>
 
                     <div className="md:flex-[1.2] p-8 flex flex-col justify-center">
                          <div className="border-b border-[#333] pb-4 mb-4">
-                             <p className="text-[37px] text-[#c6a87c] tracking-[0.2em] uppercase font-semibold">
-                                {product.collection || 'Collection'}
-                             </p>
-                         </div>
+    <p className="text-[37px] text-[#c6a87c] tracking-[0.2em] uppercase font-semibold">
+        {product.name}
+    </p>
+</div>
                          <p className="text-[#b0b0b0] text-sm font-light leading-relaxed mb-6">
                             {firstVariant?.description || '-'}
                          </p>

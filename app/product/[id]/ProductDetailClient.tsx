@@ -5,7 +5,7 @@ import { FaChevronLeft, FaMagnifyingGlassPlus, FaXmark } from 'react-icons/fa6';
 import Link from 'next/link';
 import { useRouter } from "next/navigation";
 import DetailCarousel from '../../components/DetailCarousel'; 
-import { supabase, supabaseBall } from '@/app/lib/supabase';
+import { supabase } from '@/app/lib/supabase';
 
 
 interface ProductVariant {

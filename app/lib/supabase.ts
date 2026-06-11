@@ -1,26 +1,21 @@
 // app/lib/supabase.ts
 import { createClient } from '@supabase/supabase-js';
 
-// ดึงค่ามาพักไว้ก่อน
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const urlBall = process.env.NEXT_PUBLIC_SUPABASE_URLBALL;
 const keyBall = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEYBALL;
 
-// ตรวจสอบความพร้อมของกุญแจ
 if (!url || !key) {
-  console.warn("⚠️ คีย์มาตรฐาน (ชุดเพื่อน) หายไปจาก .env.local");
+  console.warn('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local');
 }
 
-if (!urlBall || !keyBall) {
-  console.warn("⚠️ คีย์ BALL (ชุดนาย) หายไปจาก .env.local");
+const defaultSupabase = url && key ? createClient(url, key) : null;
+const ballSupabase = urlBall && keyBall ? createClient(urlBall, keyBall) : defaultSupabase;
+
+if ((!urlBall || !keyBall) && defaultSupabase) {
+  console.warn('Missing BALL Supabase keys; using the default Supabase client instead.');
 }
 
-// สร้าง Client แบบเช็กเงื่อนไข (เพื่อไม่ให้หน้าเว็บล่มตอน Evaluate)
-export const supabase = (url && key) 
-  ? createClient(url, key) 
-  : null as any;
-
-export const supabaseBall = (urlBall && keyBall) 
-  ? createClient(urlBall, keyBall) 
-  : null as any;
+export const supabase = defaultSupabase as any;
+export const supabaseBall = ballSupabase as any;

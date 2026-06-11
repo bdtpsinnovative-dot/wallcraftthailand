@@ -14,6 +14,10 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const { style } = await searchParams;
 
+  if (!supabaseBall) {
+    return notFound();
+  }
+
   const { data: product, error } = await supabaseBall
     .from('products')
     .select(`
