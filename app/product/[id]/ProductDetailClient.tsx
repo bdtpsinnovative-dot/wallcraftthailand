@@ -33,7 +33,7 @@ export default function ProductDetailClient({ product, variants, initialStyle }:
   const filteredVariants = initialStyle 
     ? variants.filter(v => (v.pattern || v.color) === initialStyle)
     : variants;
-const router = useRouter();
+  const router = useRouter();
   const displayVariants = filteredVariants.length > 0 ? filteredVariants : variants;
 
   const groupedData: Record<string, Record<string, ProductVariant[]>> = {};
@@ -47,13 +47,14 @@ const router = useRouter();
 
   const patterns = Object.keys(groupedData).sort();
   const [selectedPattern, setSelectedPattern] = useState(patterns[0]);
-  
-  const firstFilm = selectedPattern && groupedData[selectedPattern] 
-    ? Object.keys(groupedData[selectedPattern])[0] : '';
+
+  const currentFilms = selectedPattern ? groupedData[selectedPattern] ?? {} : {};
+  const filmOptions = Object.keys(currentFilms);
+  const firstFilm = filmOptions[0] || '';
   const [selectedFilm, setSelectedFilm] = useState(firstFilm);
-  
-  const firstVariant = selectedPattern && selectedFilm && groupedData[selectedPattern][selectedFilm]
-    ? groupedData[selectedPattern][selectedFilm][0] : null;
+
+  const currentVariants = selectedFilm ? currentFilms[selectedFilm] ?? [] : [];
+  const firstVariant = currentVariants[0] || null;
 
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(firstVariant);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -65,6 +66,9 @@ const router = useRouter();
         const nextFilm = films[0];
         setSelectedFilm(nextFilm);
         setSelectedVariant(groupedData[selectedPattern][nextFilm][0]);
+      } else {
+        setSelectedFilm('');
+        setSelectedVariant(null);
       }
     }
   }, [selectedPattern]);
@@ -72,6 +76,8 @@ const router = useRouter();
   useEffect(() => {
     if (selectedPattern && selectedFilm && groupedData[selectedPattern]?.[selectedFilm]) {
        setSelectedVariant(groupedData[selectedPattern][selectedFilm][0]);
+    } else if (selectedFilm) {
+      setSelectedVariant(null);
     }
   }, [selectedFilm]);
 
@@ -81,6 +87,8 @@ const router = useRouter();
   // 2. Check status on load (using Primary Supabase)
   useEffect(() => {
     const checkStatus = async () => {
+      if (!supabase) return;
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !selectedVariant?.sku) return;
 
@@ -98,6 +106,8 @@ const router = useRouter();
 
   // 3. Toggle Save (Writing to Primary Supabase)
   const handleToggleSave = async () => {
+    if (!supabase) return alert("Supabase is not configured.");
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert("Please login to save textures.");
 
@@ -206,7 +216,7 @@ const router = useRouter();
               </div>
               
               <div className="flex flex-wrap gap-3">
-                {Object.keys(groupedData[selectedPattern] || {}).map((f) => (
+                {filmOptions.map((f) => (
                   <button
                     key={f}
                     onClick={() => setSelectedFilm(f)}
@@ -226,7 +236,7 @@ const router = useRouter();
                 onChange={(e) => setSelectedVariant(JSON.parse(e.target.value))}
                 value={JSON.stringify(selectedVariant)}
               >
-                {groupedData[selectedPattern]?.[selectedFilm]?.map((v, idx) => (
+                {currentVariants.map((v, idx) => (
                   <option key={idx} value={JSON.stringify(v)}>
                     {v.thickness_mm}mm ({v.width_mm}x{v.length_mm}mm)
                   </option>
