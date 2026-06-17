@@ -17,7 +17,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'ต้องระบุ order_id' }, { status: 400 });
     }
 
-    // 🌟 ดึงข้อมูลออเดอร์แบบทะลวงลึกทุกตาราง
+    // 🌟 ดึงข้อมูลออเดอร์แบบทะลวงลึกทุกตาราง (เพิ่มข้อมูลที่แอดมินเพิ่งแก้มาให้ครบ!)
     const { data, error } = await supabase
       .from('orders')
       .select(`
@@ -27,7 +27,14 @@ export async function GET(request: Request) {
         order_items(
           note, images,
           product_categories(name),
-          order_item_projects(project_name, area_sqm)
+          order_item_projects(
+            project_name, 
+            area_sqm,
+            project_note,       /* 🌟 คอมเมนต์แอดมิน */
+            queue_level,        /* 🌟 คิวงาน */
+            project_year,       /* 🌟 ปี พ.ศ. */
+            project_types(name) /* 🌟 ประเภทโครงการ */
+          )
         )
       `)
       .eq('id', orderId)
