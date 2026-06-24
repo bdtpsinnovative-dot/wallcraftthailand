@@ -1,5 +1,5 @@
 import { MetadataRoute } from 'next'
-import { supabaseBall } from '@/app/lib/supabase'
+import { supabase } from '@/app/lib/supabase'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://www.wallcraftthailand.com'
@@ -24,12 +24,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: route === '' ? 1 : 0.8,
   }))
 
-  if (!supabaseBall) {
+  if (!supabase) {
     return routes
   }
 
   // 2. ดึงข้อมูลจาก Supabase
-  const { data: products } = await supabaseBall
+  const { data: products } = await supabase
     .from('products')
     .select('id, collection')
 

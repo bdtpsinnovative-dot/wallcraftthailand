@@ -12,21 +12,18 @@ const supabase = createClient(
 
 export async function GET(request: Request) {
   try {
-    // 1. ดึงข้อมูลตารางหลัก + รูปลิงก์
+    // 1. ดึงข้อมูลตารางหลัก + รูปลิงก์ตรงๆ (ไม่มีการ JOIN แล้ว)
     const { data, error } = await supabase
       .from('stock_balance')
       .select(`
         id, series, item_name, color_name, material, height_mm, width_mm, thickness_mm, qty, last_updated,
-        linked_item:product_variants!linked_variant_id(
-          sku, variant_image,
-          products ( image_url )
-        )
+        catalog_image_url
       `)
       .order('last_updated', { ascending: false });
 
     if (error) throw error;
 
-    // 🌟 2. ดึงยอดที่กำลัง "รออนุมัติ (pending)" จาก stock_out มาคำนวณ
+    // 🌟 2. ดึงยอดที่กำลัง "รออนุมัติ (pending)" จาก stock_out มาคำนวณ (ส่วนนี้ไม่ต้องแก้ ทำงานตามเดิม)
     const { data: pendingData } = await supabase
       .from('stock_out')
       .select('product_id, qty')
@@ -41,8 +38,6 @@ export async function GET(request: Request) {
 
     // 3. จัดระเบียบข้อมูลและยัด pending_qty ลงไป
     const formattedData = data.map((item: any) => {
-      const imgUrl = item.linked_item?.variant_image || item.linked_item?.products?.image_url || null;
-      
       return {
         id: item.id,
         series: item.series ?? '-',
@@ -53,9 +48,9 @@ export async function GET(request: Request) {
         width_mm: item.width_mm ?? 0,
         thickness_mm: item.thickness_mm ?? 0,
         qty: item.qty ?? 0,
-        pending_qty: pendingMap[item.id] || 0, // 🌟 แนบยอด Pending กลับไปให้ Flutter
-        catalog_image: imgUrl,
-        catalog_sku: item.linked_item?.sku ?? '-'
+        pending_qty: pendingMap[item.id] || 0,
+        catalog_image: item.catalog_image_url || null, // 👈 ดึงจากคอลัมน์ใหม่ตรงๆ
+        catalog_sku: '-' // ⚠️ ดูข้อควรระวังด้านล่าง
       };
     });
 

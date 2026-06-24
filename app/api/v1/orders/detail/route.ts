@@ -30,10 +30,10 @@ export async function GET(request: Request) {
           order_item_projects(
             project_name, 
             area_sqm,
-            project_note,       /* 🌟 คอมเมนต์แอดมิน */
-            queue_level,        /* 🌟 คิวงาน */
-            project_year,       /* 🌟 ปี พ.ศ. */
-            project_types(name) /* 🌟 ประเภทโครงการ */
+            project_note,    
+            queue_level,        
+            project_year,       
+            project_types(name) 
           )
         )
       `)

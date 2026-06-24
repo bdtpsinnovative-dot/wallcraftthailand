@@ -177,7 +177,7 @@ export async function POST(request: Request) {
       // 1. ดึงข้อมูล User ทุกคน (ยกเว้นตัวเอง) พร้อมค่า Setting
       const { data: allUsers } = await supabase
         .from('profiles')
-        .select('id, fcm_token, team_id, noti_level, is_muted')
+        .select('id, fcm_tokens, team_id, noti_level, is_muted')
         .neq('id', currentUserId);
 
       if (allUsers && allUsers.length > 0) {
@@ -206,14 +206,14 @@ export async function POST(request: Request) {
           const { error: dbError } = await supabase.from('notifications').insert(notificationPayloads);
           if (dbError) console.error("[DB] Error saving notification history:", dbError);
 
-          // ส่ง FCM
+          // Send FCM to every saved device token for each recipient.
           for (const target of recipients) {
-            if (!target.fcm_token) continue;
+            const tokens = extractFcmTokens(target.fcm_tokens);
+            if (tokens.length === 0) continue;
 
             try {
-              // 🌟 1. สร้างก้อนข้อมูลพื้นฐานที่จะส่งไปก่อน (มีแค่ข้อความ ไม่บอกเรื่องเสียง)
-              const messagePayload: any = {
-                token: target.fcm_token,
+              const messagePayload: admin.messaging.MulticastMessage = {
+                tokens,
                 notification: {
                   title: title,
                   body: bodyMsg,
@@ -221,18 +221,31 @@ export async function POST(request: Request) {
                 data: {
                   orderId: order.id.toString(),
                   type: 'new_order'
+                },
+                android: {
+                  priority: 'high',
+                  notification: {
+                    clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+                    ...(!target.is_muted ? { sound: 'default' } : {})
+                  }
+                },
+                apns: {
+                  payload: {
+                    aps: {
+                      badge: 1,
+                      ...(!target.is_muted ? { sound: 'default' } : {})
+                    }
+                  }
                 }
               };
 
-              // 🌟 2. เช็กว่า "ถ้าไม่ได้ปิดเสียง (!target.is_muted)" ค่อยแนบคำสั่งเปิดเสียงเข้าไป
-              if (!target.is_muted) {
-                messagePayload.android = { notification: { sound: 'default' } };
-                messagePayload.apns = { payload: { aps: { sound: 'default' } } };
+              const fcmResponse = await admin.messaging().sendEachForMulticast(messagePayload);
+              if (fcmResponse.failureCount > 0) {
+                const failedTokens = fcmResponse.responses
+                  .map((resp, index) => resp.success ? null : tokens[index])
+                  .filter((token): token is string => Boolean(token));
+                console.error(`[FCM] Failed tokens for ${target.id}:`, failedTokens);
               }
-
-              // 🌟 3. ยิงเลย!
-              await admin.messaging().send(messagePayload);
-              
             } catch (fcmErr) {
               console.error(`[FCM] Failed to send to ${target.id}:`, fcmErr);
             }
@@ -263,4 +276,19 @@ function injectCompanyNames(projectRow: any, typeName: string, companyName: stri
     projectRow.account_contractor = companyName; 
   }
   return projectRow;
+}
+
+function extractFcmTokens(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((entry) => {
+      if (typeof entry === 'string') return entry;
+      if (entry && typeof entry === 'object' && 'token' in entry) {
+        const token = (entry as { token?: unknown }).token;
+        return typeof token === 'string' ? token : null;
+      }
+      return null;
+    })
+    .filter((token): token is string => Boolean(token));
 }
