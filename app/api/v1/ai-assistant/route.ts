@@ -73,6 +73,22 @@ export async function POST(req: NextRequest) {
 
         if (dbError) throw dbError;
 
+        if (products && products.length > 0) {
+            // 🔍 ไปดึง product_id ของจริงจากตาราง product_variants เพื่อเอามาลิงก์ให้ถูกต้อง
+            const skus = products.map((p: any) => p.sku);
+            const { data: variantsInfo } = await supabase
+                .from('product_variants')
+                .select('sku, product_id')
+                .in('sku', skus);
+            
+            if (variantsInfo) {
+                const skuMap = Object.fromEntries(variantsInfo.map((v: any) => [v.sku, v.product_id]));
+                products.forEach((p: any) => {
+                    p.product_id = skuMap[p.sku] || p.product_id;
+                });
+            }
+        }
+
         if (!products || products.length === 0) {
             const apiKey = process.env.GEMINI_API_KEY;
             

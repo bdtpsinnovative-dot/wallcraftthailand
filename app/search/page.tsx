@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { 
-  FaMagnifyingGlass, 
   FaImage, 
   FaCloudArrowUp, 
   FaXmark,
@@ -13,6 +14,8 @@ import {
 } from 'react-icons/fa6';
 
 type Product = {
+  id?: string | number;
+  product_id?: string | number;
   name: string;
   sku: string;
   description: string;
@@ -21,9 +24,6 @@ type Product = {
 };
 
 export default function SearchPage() {
-  const [activeTab, setActiveTab] = useState<'image' | 'text'>('image');
-  const [searchTerm, setSearchTerm] = useState('');
-  
   // Image Upload States
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -34,9 +34,8 @@ export default function SearchPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   
-  // Modal States
+  // Alert State
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -66,7 +65,7 @@ export default function SearchPage() {
   const handleSearchSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (activeTab === 'image' && selectedImage) {
+    if (selectedImage) {
       setIsLoading(true);
       setProducts([]);
       setAiAnalysis(null);
@@ -102,9 +101,6 @@ export default function SearchPage() {
       } finally {
         setIsLoading(false);
       }
-    } else if (activeTab === 'text' && searchTerm.trim()) {
-      // Placeholder for text search functionality
-      setAlertMessage("ระบบค้นหาด้วยข้อความกำลังอยู่ระหว่างการพัฒนาครับ!");
     }
   };
 
@@ -134,54 +130,7 @@ export default function SearchPage() {
         </div>
       )}
 
-      {/* 📦 Product Details Modal (Bottom Sheet on Mobile, Centered Modal on Desktop) */}
-      {selectedProduct && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/80 backdrop-blur-md p-0 md:p-4 transition-all">
-          <div className="bg-[#0f0f11] w-full md:max-w-2xl h-[85vh] md:h-auto md:max-h-[90vh] rounded-t-[30px] md:rounded-3xl border border-white/10 flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-300 shadow-2xl">
-            {/* Drag handle for mobile */}
-            <div className="w-full flex justify-center pt-4 pb-2 md:hidden">
-              <div className="w-12 h-1.5 bg-white/20 rounded-full"></div>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto pb-6">
-              <div className="px-5 md:px-8 md:pt-8">
-                {/* Product Image */}
-                <div className="w-full aspect-[4/3] relative rounded-2xl overflow-hidden mb-6 bg-black border border-white/5">
-                  <img src={selectedProduct.variant_image} alt={selectedProduct.name} className="w-full h-full object-cover" />
-                </div>
-                
-                {/* Meta Info */}
-                <div className="flex justify-between items-start mb-4">
-                  <span className="text-[#c6a87c] font-bold tracking-widest uppercase text-sm mt-1">
-                    {selectedProduct.sku || 'NO SKU'}
-                  </span>
-                  <div className="bg-green-500/10 px-3 py-1.5 rounded-full border border-green-500/20">
-                    <span className="text-green-400 font-bold text-xs">
-                      ความแม่นยำ {(selectedProduct.similarity * 100).toFixed(1)}%
-                    </span>
-                  </div>
-                </div>
-                
-                {/* Title & Description */}
-                <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">{selectedProduct.name || 'ไม่มีชื่อสินค้า'}</h2>
-                <p className="text-zinc-400 text-sm md:text-base leading-relaxed">
-                  {selectedProduct.description || 'สินค้าคุณภาพจาก Wallcraft Collection'}
-                </p>
-              </div>
-            </div>
-            
-            {/* Action Button */}
-            <div className="p-5 md:p-8 bg-[#0f0f11] border-t border-white/5">
-              <button 
-                onClick={() => setSelectedProduct(null)}
-                className="w-full py-4 bg-white text-black font-bold rounded-xl hover:bg-zinc-200 transition-colors text-lg"
-              >
-                ปิดหน้าต่าง
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Header */}
       <div className="w-full max-w-4xl text-center mb-10">
@@ -198,49 +147,62 @@ export default function SearchPage() {
         
         {/* Search Card */}
         <div className="bg-black/40 border border-white/10 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
-          {/* Tabs */}
-          <div className="flex border-b border-white/10">
-            <button 
-              onClick={() => setActiveTab('image')}
-              className={`flex-1 py-5 text-xs tracking-[0.15em] uppercase font-bold flex items-center justify-center gap-3 transition-colors ${
-                activeTab === 'image' 
-                  ? 'text-[#c6a87c] border-b-2 border-[#c6a87c] bg-white/5' 
-                  : 'text-zinc-500 hover:text-white hover:bg-white/5'
-              }`}
-            >
+          {/* Card Header (แทนที่ Tabs) */}
+          <div className="flex border-b border-white/10 bg-white/5 justify-center py-5">
+            <span className="text-[#c6a87c] text-xs tracking-[0.15em] uppercase font-bold flex items-center justify-center gap-3">
               <FaImage className="text-lg" />
               Visual Search
-            </button>
-            <button 
-              onClick={() => setActiveTab('text')}
-              className={`flex-1 py-5 text-xs tracking-[0.15em] uppercase font-bold flex items-center justify-center gap-3 transition-colors ${
-                activeTab === 'text' 
-                  ? 'text-[#c6a87c] border-b-2 border-[#c6a87c] bg-white/5' 
-                  : 'text-zinc-500 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <FaMagnifyingGlass className="text-lg" />
-              Text Search
-            </button>
+            </span>
           </div>
 
           <form onSubmit={handleSearchSubmit} className="p-6 md:p-10">
-            
-            {/* ----- โซนค้นหาด้วยรูปภาพ ----- */}
-            {activeTab === 'image' && (
-              <div className="flex flex-col gap-6">
-                {!previewUrl ? (
+            <div className="flex flex-col gap-6">
+              {!previewUrl ? (
+                <div 
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`w-full h-72 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-5 cursor-pointer transition-all ${
+                    isDragging 
+                      ? 'border-[#c6a87c] bg-[#c6a87c]/10' 
+                      : 'border-white/10 bg-black/50 hover:border-[#c6a87c]/50 hover:bg-white/5'
+                  }`}
+                >
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    ref={fileInputRef}
+                    onChange={(e) => handleImageChange(e.target.files?.[0])}
+                    className="hidden" 
+                  />
+                  <div className="p-4 rounded-full bg-white/5 text-[#c6a87c]">
+                    <FaCloudArrowUp className="text-4xl" />
+                  </div>
+                  <div className="text-center px-4">
+                    <p className="text-white font-medium mb-2">แตะเพื่ออัปโหลด หรือลากรูปมาวางที่นี่</p>
+                    <p className="text-zinc-500 text-xs tracking-widest uppercase">รองรับ JPG, PNG, WEBP</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative w-full h-72 rounded-2xl overflow-hidden border border-white/10 bg-black flex justify-center items-center group">
+                  <img 
+                    src={previewUrl} 
+                    alt="Preview" 
+                    className="w-full h-full object-cover opacity-90 transition-opacity group-hover:opacity-70"
+                  />
+                  {/* Gradient overlay for better button visibility */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
+                  
+                  {/* Change Image Button Overlay */}
                   <div 
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
                     onClick={() => fileInputRef.current?.click()}
-                    className={`w-full h-72 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-5 cursor-pointer transition-all ${
-                      isDragging 
-                        ? 'border-[#c6a87c] bg-[#c6a87c]/10' 
-                        : 'border-white/10 bg-black/50 hover:border-[#c6a87c]/50 hover:bg-white/5'
-                    }`}
+                    className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
                   >
+                    <div className="bg-black/60 backdrop-blur-md px-6 py-3 rounded-full border border-white/20 flex items-center gap-3">
+                      <FaRotate className="text-white" />
+                      <span className="text-white font-bold text-sm">เปลี่ยนรูปภาพ</span>
+                    </div>
                     <input 
                       type="file" 
                       accept="image/*" 
@@ -248,107 +210,41 @@ export default function SearchPage() {
                       onChange={(e) => handleImageChange(e.target.files?.[0])}
                       className="hidden" 
                     />
-                    <div className="p-4 rounded-full bg-white/5 text-[#c6a87c]">
-                      <FaCloudArrowUp className="text-4xl" />
-                    </div>
-                    <div className="text-center px-4">
-                      <p className="text-white font-medium mb-2">แตะเพื่ออัปโหลด หรือลากรูปมาวางที่นี่</p>
-                      <p className="text-zinc-500 text-xs tracking-widest uppercase">รองรับ JPG, PNG, WEBP</p>
-                    </div>
                   </div>
-                ) : (
-                  <div className="relative w-full h-72 rounded-2xl overflow-hidden border border-white/10 bg-black flex justify-center items-center group">
-                    <img 
-                      src={previewUrl} 
-                      alt="Preview" 
-                      className="w-full h-full object-cover opacity-90 transition-opacity group-hover:opacity-70"
-                    />
-                    {/* Gradient overlay for better button visibility */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
-                    
-                    {/* Change Image Button Overlay */}
-                    <div 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
-                    >
-                      <div className="bg-black/60 backdrop-blur-md px-6 py-3 rounded-full border border-white/20 flex items-center gap-3">
-                        <FaRotate className="text-white" />
-                        <span className="text-white font-bold text-sm">เปลี่ยนรูปภาพ</span>
-                      </div>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        ref={fileInputRef}
-                        onChange={(e) => handleImageChange(e.target.files?.[0])}
-                        className="hidden" 
-                      />
-                    </div>
 
-                    <button 
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedImage(null);
-                        setPreviewUrl(null);
-                        setProducts([]);
-                        setAiAnalysis(null);
-                      }}
-                      className="absolute top-4 right-4 bg-black/60 backdrop-blur-md border border-white/20 text-white hover:text-red-400 hover:border-red-400/50 p-2.5 rounded-full transition-all z-20"
-                    >
-                      <FaXmark className="text-lg" />
-                    </button>
-                  </div>
-                )}
-
-                <button 
-                  type="submit"
-                  disabled={!selectedImage || isLoading}
-                  className={`w-full py-5 rounded-xl font-bold tracking-[0.2em] uppercase text-sm transition-all flex justify-center items-center gap-3 ${
-                    selectedImage 
-                      ? 'bg-gradient-to-r from-[#c6a87c] to-[#a4885c] hover:shadow-[0_0_20px_rgba(198,168,124,0.4)] text-black' 
-                      : 'bg-zinc-900 text-zinc-600 cursor-not-allowed border border-white/5'
-                  }`}
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
-                      AI is scanning...
-                    </>
-                  ) : 'START SEARCH'}
-                </button>
-              </div>
-            )}
-
-            {/* ----- โซนค้นหาด้วยข้อความ ----- */}
-            {activeTab === 'text' && (
-              <div className="flex flex-col gap-6">
-                <div className="relative">
-                  <input 
-                    type="text" 
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="ค้นหาชื่อสินค้า หรือ SKU..."
-                    className="w-full bg-black/50 border border-white/10 text-white rounded-xl py-5 pl-6 pr-16 focus:outline-none focus:border-[#c6a87c] transition-all font-light"
-                  />
-                  <div className="absolute right-6 top-1/2 -translate-y-1/2 text-zinc-500">
-                    <FaMagnifyingGlass className="text-xl" />
-                  </div>
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedImage(null);
+                      setPreviewUrl(null);
+                      setProducts([]);
+                      setAiAnalysis(null);
+                    }}
+                    className="absolute top-4 right-4 bg-black/60 backdrop-blur-md border border-white/20 text-white hover:text-red-400 hover:border-red-400/50 p-2.5 rounded-full transition-all z-20"
+                  >
+                    <FaXmark className="text-lg" />
+                  </button>
                 </div>
+              )}
 
-                <button 
-                  type="submit"
-                  disabled={!searchTerm.trim() || isLoading}
-                  className={`w-full py-5 rounded-xl font-bold tracking-[0.2em] uppercase text-sm transition-all ${
-                    searchTerm.trim() 
-                      ? 'bg-gradient-to-r from-[#c6a87c] to-[#a4885c] hover:shadow-[0_0_20px_rgba(198,168,124,0.4)] text-black' 
-                      : 'bg-zinc-900 text-zinc-600 cursor-not-allowed border border-white/5'
-                  }`}
-                >
-                  Search Archive
-                </button>
-              </div>
-            )}
-
+              <button 
+                type="submit"
+                disabled={!selectedImage || isLoading}
+                className={`w-full py-5 rounded-xl font-bold tracking-[0.2em] uppercase text-sm transition-all flex justify-center items-center gap-3 ${
+                  selectedImage 
+                    ? 'bg-gradient-to-r from-[#c6a87c] to-[#a4885c] hover:shadow-[0_0_20px_rgba(198,168,124,0.4)] text-black' 
+                    : 'bg-zinc-900 text-zinc-600 cursor-not-allowed border border-white/5'
+                }`}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
+                    AI is scanning...
+                  </>
+                ) : 'START SEARCH'}
+              </button>
+            </div>
           </form>
         </div>
 
@@ -377,10 +273,13 @@ export default function SearchPage() {
                 const score = p.similarity * 100;
                 const isHighMatch = score >= 60;
                 
+                const id = p.product_id || p.id || '';
+                const href = `/product/${id}?style=${encodeURIComponent(p.sku)}`;
+
                 return (
-                  <div 
+                  <Link 
                     key={idx} 
-                    onClick={() => setSelectedProduct(p)}
+                    href={href}
                     className="bg-[#1c1c1e]/80 backdrop-blur-sm p-3 md:p-4 rounded-2xl border border-white/5 flex items-center gap-4 cursor-pointer hover:bg-white/10 hover:border-white/10 hover:-translate-y-1 transition-all shadow-lg"
                   >
                     {/* Thumbnail */}
@@ -407,7 +306,7 @@ export default function SearchPage() {
                     <div className="shrink-0 px-2 text-zinc-600">
                       <FaChevronRight />
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>

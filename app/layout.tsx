@@ -40,6 +40,34 @@ export const metadata: Metadata = {
     template: "%s | Wallcraft ผนังตกแต่งบ้าน", 
   },
   description: "Wallcraft (วอลล์คราฟท์) ศูนย์รวมสินค้าผนัง ผนังตกแต่งบ้าน และระแนงไม้คุณภาพสูง ดีไซน์ทันสมัย เปลี่ยนบ้านและห้องของคุณให้สวยหรูตรงใจ",
+  
+  // ✅ 3. เพิ่ม Keywords เน้นๆ ให้ Google หาเจอแน่นอน
+  keywords: ["wallcraft", "wallcraftthailand", "วอลล์คราฟท์", "ผนังตกแต่งบ้าน", "ระแนงไม้", "สินค้าผนัง", "ตกแต่งภายใน", "วัสดุตกแต่ง", "ระแนงไม้พรีเมียม"],
+  
+  // ✅ 3. ตั้งค่าไอคอนสำหรับ Browser แท็บ และ iPhone (Apple Touch Icon)
+  icons: {
+    icon: '/favicon.png', 
+    shortcut: '/favicon.png',
+    apple: '/apple-icon.png', 
+  },
+  
+  // ✅ 4. ตั้งค่า OpenGraph ให้แสดงภาพและข้อมูลเวลาแชร์ลง LINE, Facebook เป๊ะๆ
+  openGraph: {
+    title: "Wallcraft Thailand | ผนังตกแต่งบ้าน สินค้าผนัง ระแนงไม้พรีเมียม",
+    description: "Wallcraft (วอลล์คราฟท์) ศูนย์รวมสินค้าผนัง ผนังตกแต่งบ้าน และระแนงไม้คุณภาพสูง ดีไซน์ทันสมัย เปลี่ยนบ้านและห้องของคุณให้สวยหรูตรงใจ",
+    url: 'https://wallcraftthailand.com',
+    siteName: 'Wallcraft Thailand',
+    images: [
+      {
+        url: '/og-image.png', 
+        width: 600,
+        height: 600,
+        alt: 'Wallcraft Thailand Logo',
+      },
+    ],
+    locale: 'th_TH',
+    type: 'website',
+  },
 };
 
 export default function RootLayout({
