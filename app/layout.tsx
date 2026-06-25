@@ -3,15 +3,13 @@ import type { Metadata } from "next";
 import { Prompt, Noto_Sans_Thai } from "next/font/google";
 import "@fortawesome/fontawesome-svg-core/styles.css";
 import { config } from "@fortawesome/fontawesome-svg-core";
-import NextTopLoader from 'nextjs-toploader'; // นำเข้าตัวโหลดดิ้งบาร์
+import NextTopLoader from 'nextjs-toploader'; 
 import "./globals.css";
 
 import ConditionalNavbar from "./components/Navbar";
 import ConditionalFooter from "./components/ConditionalFooter";
 
-// ย้ายคำสั่งตั้งค่ามาไว้ตรงนี้ครับ (หลังจาก import ทุกอย่างเสร็จหมดแล้ว)
 config.autoAddCss = false;
-export const dynamic = 'force-dynamic';
 
 const prompt = Prompt({
   subsets: ["thai", "latin"],
@@ -27,9 +25,21 @@ const notoSansThai = Noto_Sans_Thai({
   display: "swap",
 });
 
+// ✅ อัปเดต Metadata จัดเต็มคีย์เวิร์ด "ผนังตกแต่งบ้าน" และ "สินค้าผนัง"
 export const metadata: Metadata = {
-  title: "Wallcraft | Home Page",
-  description: "Wallcraft Editorial Material Studio",
+  // ✅ 1. เพิ่มบรรทัดนี้ เพื่อตั้งค่า Domain หลักของเว็บ (ใส่โดเมนจริงของนายลงไป)
+  metadataBase: new URL('https://wallcraftthailand.com'), 
+  
+  // ✅ 2. เพิ่ม alternates และ canonical เพื่อบอก Google ว่านี่คือหน้าหลัก (Master Copy)
+  alternates: {
+    canonical: '/', 
+  },
+  
+  title: {
+    default: "Wallcraft Thailand | ผนังตกแต่งบ้าน สินค้าผนัง ระแนงไม้พรีเมียม", 
+    template: "%s | Wallcraft ผนังตกแต่งบ้าน", 
+  },
+  description: "Wallcraft (วอลล์คราฟท์) ศูนย์รวมสินค้าผนัง ผนังตกแต่งบ้าน และระแนงไม้คุณภาพสูง ดีไซน์ทันสมัย เปลี่ยนบ้านและห้องของคุณให้สวยหรูตรงใจ",
 };
 
 export default function RootLayout({
@@ -38,10 +48,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${prompt.variable} ${notoSansThai.variable}`}>
+    <html lang="th" className={`${prompt.variable} ${notoSansThai.variable}`}>
       <body className={`antialiased noise font-sans text-[#808080]`}>
-        
-        {/* แถบโหลดดิ้งสีทองตอนเปลี่ยนหน้า */}
         <NextTopLoader 
           color="#c6a87c"          
           initialPosition={0.08}   
@@ -52,11 +60,9 @@ export default function RootLayout({
           easing="ease"
           speed={200}
         />
-        
         <ConditionalNavbar />
         {children}
         <ConditionalFooter />
-        
       </body>
     </html>
   );
