@@ -1,5 +1,3 @@
-//app/components/VariantCarousel.tsx
-
 'use client';
 
 import React, { useState } from 'react';
@@ -13,9 +11,8 @@ interface VariantCarouselProps {
 
 export default function VariantCarousel({ variants, productId }: VariantCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const itemsToShow = 3; // แสดงทีละ 3 รูป
+  const itemsToShow = 3; 
 
-  // คำนวณจุดสิ้นสุด (ไม่ให้เลื่อนเกิน)
   const maxIndex = Math.max(0, variants.length - itemsToShow);
 
   const next = () => {
@@ -30,23 +27,25 @@ export default function VariantCarousel({ variants, productId }: VariantCarousel
     }
   };
 
-  // Logic ปุ่ม: ถ้าสุดทางแล้วให้ปุ่มจางลง
   const isAtStart = currentIndex === 0;
   const isAtEnd = currentIndex >= maxIndex;
 
-  // ถ้ามีรูปน้อยกว่า 3 ให้แสดงแบบธรรมดา (ไม่ต้องสไลด์)
   if (variants.length <= itemsToShow) {
     return (
       <div className="flex gap-4">
-        {variants.map((v, idx) => (
-          <Link 
-            key={idx} 
-            href={`/product/${productId}?style=${encodeURIComponent(v.pattern || v.color || v.sku)}`}
-            className="block aspect-square w-1/3 border border-[#444] rounded-sm hover:border-[#c6a87c] hover:scale-105 transition-all overflow-hidden"
-          >
-             <img src={v.variant_image} alt="style" className="w-full h-full object-cover" />
-          </Link>
-        ))}
+        {variants.map((v, idx) => {
+          const name = v.pattern || v.color || v.sku || 'พรีเมียม';
+          return (
+            <Link 
+              key={idx} 
+              href={`/product/${productId}?style=${encodeURIComponent(v.pattern || v.color || v.sku)}`}
+              className="block aspect-square w-1/3 border border-[#444] rounded-sm hover:border-[#c6a87c] hover:scale-105 transition-all overflow-hidden"
+            >
+               {/* ✅ แก้ไข alt ตรงนี้ */}
+               <img src={v.variant_image} alt={`ผนังตกแต่งบ้าน ระแนงไม้ ลาย ${name} แบรนด์ Wallcraft`} className="w-full h-full object-cover" />
+            </Link>
+          );
+        })}
       </div>
     );
   }
@@ -54,7 +53,6 @@ export default function VariantCarousel({ variants, productId }: VariantCarousel
   return (
     <div className="flex items-center gap-2">
       
-      {/* ปุ่มซ้าย */}
       <button 
         onClick={prev}
         disabled={isAtStart}
@@ -63,9 +61,7 @@ export default function VariantCarousel({ variants, productId }: VariantCarousel
         <FaChevronLeft size={16} />
       </button>
 
-      {/* หน้าต่างแสดงผล (Viewport) - ซ่อนส่วนที่ล้น */}
       <div className="overflow-hidden flex-1">
-         {/* รางเลื่อน (Track) - ขยับด้วย translateX */}
          <div 
            className="flex transition-transform duration-500 ease-out" 
            style={{ transform: `translateX(-${currentIndex * (100 / itemsToShow)}%)` }}
@@ -73,13 +69,13 @@ export default function VariantCarousel({ variants, productId }: VariantCarousel
             {variants.map((v, idx) => {
                const styleName = v.pattern || v.color || v.sku;
                return (
-                 // กำหนดความกว้าง 33.33% (1/3) และใส่ padding เพื่อให้เกิดช่องว่างระหว่างรูป
                  <div key={idx} className="min-w-[33.333%] px-2">
                     <Link
                       href={`/product/${productId}?style=${encodeURIComponent(styleName)}`}
                       className="block aspect-square w-full border border-[#444] rounded-sm hover:border-[#c6a87c] hover:scale-105 transition-all duration-300 overflow-hidden shadow-md"
                     >
-                      <img src={v.variant_image} alt={styleName} className="w-full h-full object-cover" />
+                      {/* ✅ แก้ไข alt ตรงนี้ */}
+                      <img src={v.variant_image} alt={`สินค้าผนังตกแต่งบ้าน ระแนงไม้ Wallcraft ลาย ${styleName}`} className="w-full h-full object-cover" />
                     </Link>
                  </div>
                );
@@ -87,7 +83,6 @@ export default function VariantCarousel({ variants, productId }: VariantCarousel
          </div>
       </div>
 
-      {/* ปุ่มขวา */}
       <button 
         onClick={next}
         disabled={isAtEnd}

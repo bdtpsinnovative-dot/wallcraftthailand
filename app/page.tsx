@@ -92,7 +92,7 @@ export default function HomePage() {
       
       <main className="relative min-h-screen flex flex-col lg:flex-row items-center justify-between pt-32 pb-12 px-6 md:px-16 max-w-[1900px] mx-auto overflow-hidden z-10">
         
-{/* Left Content */}
+        {/* Left Content */}
         <div className="relative z-10 w-full lg:w-[40%] flex flex-col items-start text-left mb-16 lg:mb-0 animate-reveal" style={{ animationDelay: '0.2s' }}>
             {/* Decorative Lines */}
             <div className="flex gap-1 h-1.5 w-28 mb-8">
@@ -101,19 +101,19 @@ export default function HomePage() {
                 <div className="bg-[#B08038] w-1/3"></div>
             </div>
 
-            {/* ✅ แทรกคีย์เวิร์ดใน H1 ให้ Google รู้ว่าเว็บนี้คือ Wallcraft ผนังตกแต่งบ้าน */}
+            {/* ✅ 1. เพิ่มคีย์เวิร์ดใน H1 ตรงนี้ครับ */}
             <h1 className="text-4xl md:text-5xl xl:text-7xl font-bold mb-8 tracking-tighter uppercase leading-[1.1] text-[#B08038]">
                 Wallcraft ผนังตกแต่งบ้าน<br/>ที่สะท้อนสไตล์คุณ
             </h1>
 
-            {/* ✅ แทรกคีย์เวิร์ดใน Description */}
+            {/* ✅ 2. เพิ่มคีย์เวิร์ดใน Description ย่อหน้าแรก */}
             <div className="space-y-6 max-w-xl">
                 <p className="text-gray-400 text-lg md:text-xl leading-relaxed font-light" style={{ color: '#c2bfb6' }}>
                     ศูนย์รวมสินค้าผนังและระแนงไม้พรีเมียม เรามองว่าผนังไม่ใช่เพียงฉากหลัง แต่คือองค์ประกอบหลักที่กำหนดอารมณ์ สร้างบรรยากาศ และบอกเล่ารสนิยมของพื้นที่ได้อย่างชัดเจน
                 </p>
             </div>
 
-            {/* ✅ เพิ่ม aria-label ให้ Link เพื่อบอกบอท Google ว่าปุ่มนี้กดไปเจออะไร (แก้ข้อผิดพลาด Lighthouse รอบที่แล้ว) */}
+            {/* ✅ 3. เพิ่ม aria-label ใน Link ให้ Google อ่านออก */}
             <div className="flex flex-wrap gap-4 mt-12">
                 <Link href="/introduction" aria-label="เรียนรู้เพิ่มเติมเกี่ยวกับผนังตกแต่งบ้าน Wallcraft" className="group flex items-center px-8 py-4 bg-zinc-800 text-[#c2bfb6] font-bold rounded-full hover:bg-zinc-700 transition-all uppercase text-[11px] tracking-widest">
                     Learn More <FaArrowRight className="ml-2 transition-transform group-hover:translate-x-1 text-[#c2bfb6]" />
@@ -148,25 +148,8 @@ export default function HomePage() {
                     key={index} 
                     className={`float-card card-${index} ${fadingIndices.includes(index) ? 'card-updating' : ''}`}
                   >
-                      {/* ✅ เปลี่ยน alt text ให้มีคำว่า ผนังตกแต่งบ้าน สินค้าผนัง */}
-                      <img src={src} className="w-full h-full object-cover" alt={`ผนังตกแต่งบ้าน สินค้าผนัง Wallcraft ดีไซน์ที่ ${index + 1}`} />
-                  </div>
-                ))}
-            </div>
-        </div>
-        {/* Right Floating Display */}
-        <div className="w-full lg:w-[55%] flex items-center justify-center relative min-h-[500px] lg:min-h-[600px]">
-            {/* Background Glow */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[500px] bg-[#B08038]/10 rounded-full blur-[120px] pointer-events-none"></div>
-
-            {/* Cards Container */}
-            <div className={`display-container ${loaded ? 'loaded' : ''}`}>
-                {currentImages.map((src, index) => (
-                  <div 
-                    key={index} 
-                    className={`float-card card-${index} ${fadingIndices.includes(index) ? 'card-updating' : ''}`}
-                  >
-                      <img src={src} className="w-full h-full object-cover" alt={`Wallcraft Material ${index + 1}`} />
+                      {/* ✅ 4. แก้ alt ตรงนี้ ให้เวลา Google ค้นรูปเจอแล้วรู้ว่าคืออะไร */}
+                      <img src={src} className="w-full h-full object-cover" alt={`ไอเดียผนังตกแต่งบ้าน ระแนงไม้พรีเมียม Wallcraft แบบที่ ${index + 1}`} />
                   </div>
                 ))}
             </div>

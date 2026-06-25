@@ -1,16 +1,14 @@
-// app/collections/[slug]/page.tsx
 import React from 'react';
 import Link from 'next/link';
-// 1. เปลี่ยนการนำเข้าจาก supabaseBall เป็น supabase ตัวปกติครับนาย
+
 import { supabase } from '@/app/lib/supabase';
-// ✅ เช็ก Path ตรงนี้ให้ดีว่า Component อยู่ตรงไหน
 import VariantCarousel from '@/app/components/VariantCarousel';
 
 export const dynamic = 'force-dynamic';
 
 const SLUG_TO_COLLECTION: Record<string, string> = {
   "solid-panel": "Solid Panel", 
-  "tarra-stone": "Tarra Stone", // 👈 แก้ตรงนี้ครับ เปลี่ยน key ให้ตรงกับ URL
+  "tarra-stone": "Tarra Stone", 
   "geoform": "Geo form",
   "accessories": "Accessories",
   "metallic": "Metallic"
@@ -24,7 +22,6 @@ export default async function CollectionDynamicPage({ params }: PageProps) {
   const { slug } = await params;
   const searchName = SLUG_TO_COLLECTION[slug] || slug.replace(/-/g, ' '); 
 
-  // 2. เปลี่ยนตรงนี้จาก supabaseBall เป็น supabase ครับนาย เพื่อดึงข้อมูลจากตารางปกติ
   const { data: products, error } = await supabase
     .from('products')
     .select(`
@@ -36,7 +33,6 @@ export default async function CollectionDynamicPage({ params }: PageProps) {
     .ilike('collection', `%${searchName}%`)
     .order('id', { ascending: true });
 
-  // 🚨 เปลี่ยนจากเตะไปหน้า 404 เป็นการโชว์หน้า Coming Soon แทนครับ
   if (error || !products || products.length === 0) {
     return (
       <div className="bg-[#121212] min-h-screen text-white font-['Sarabun'] flex flex-col items-center justify-center px-6">
@@ -56,7 +52,6 @@ export default async function CollectionDynamicPage({ params }: PageProps) {
     );
   }
 
-  // 👇 ถ้ามีสินค้า ก็จะเรนเดอร์ปกติเหมือนเดิมครับ
   return (
     <div className="bg-[#121212] min-h-screen text-white font-['Sarabun']">
        <header className="py-20 text-center bg-black border-b border-[#222]">
@@ -76,21 +71,21 @@ export default async function CollectionDynamicPage({ params }: PageProps) {
                 <div key={product.id} className="group bg-[#1e1e1e] flex flex-col md:flex-row overflow-hidden hover:border hover:border-[#c6a87c] transition-all duration-300 shadow-2xl">
                     
                     <Link href={`/product/${product.id}`} className="md:flex-1 min-h-[400px] md:min-h-[450px] bg-black relative overflow-hidden">
-    {/* สั่ง absolute inset-0 และ object-cover เพื่อให้รูปกางเต็มสี่เหลี่ยมผืนผ้าพอดีเป๊ะ */}
-    <img src={defaultImg} alt={product.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-    
-    <div className="absolute bottom-4 left-4 z-10 bg-black/60 p-3 rounded border-l-2 border-[#c6a87c] backdrop-blur-md">
-        <h3 className="text-white text-sm font-bold m-0">{firstVariant?.sku}</h3>
-        <span className="text-white/70 text-[10px] block mt-1">{product.name}</span>
-    </div>
-</Link>
+                        {/* ✅ แก้ไข alt ตรงนี้ให้บอกชื่อรุ่นและคอลเลกชันสินค้าผนังตกแต่ง */}
+                        <img src={defaultImg} alt={`ผนังตกแต่งบ้าน ระแนงไม้พรีเมียม รุ่น ${product.name} คอลเลกชัน ${searchName} แบรนด์ Wallcraft`} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        
+                        <div className="absolute bottom-4 left-4 z-10 bg-black/60 p-3 rounded border-l-2 border-[#c6a87c] backdrop-blur-md">
+                            <h3 className="text-white text-sm font-bold m-0">{firstVariant?.sku}</h3>
+                            <span className="text-white/70 text-[10px] block mt-1">{product.name}</span>
+                        </div>
+                    </Link>
 
                     <div className="md:flex-[1.2] p-8 flex flex-col justify-center">
                          <div className="border-b border-[#333] pb-4 mb-4">
-    <p className="text-[37px] text-[#c6a87c] tracking-[0.2em] uppercase font-semibold">
-        {product.name}
-    </p>
-</div>
+                            <p className="text-[37px] text-[#c6a87c] tracking-[0.2em] uppercase font-semibold">
+                                {product.name}
+                            </p>
+                        </div>
                          <p className="text-[#b0b0b0] text-sm font-light leading-relaxed mb-6">
                             {firstVariant?.description || '-'}
                          </p>
@@ -103,7 +98,6 @@ export default async function CollectionDynamicPage({ params }: PageProps) {
                             <div className="w-full max-w-[550px]"> 
                                 <VariantCarousel variants={uniqueVariants} productId={product.id} />
                             </div>
-                            
                          </div>
 
                          <Link href={`/product/${product.id}`} className="mt-6 text-[#c6a87c] text-sm font-bold flex items-center gap-2 hover:translate-x-2 transition-transform">
