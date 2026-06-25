@@ -6,15 +6,15 @@ import { useRouter } from 'next/navigation';
 import { FaBarsStaggered, FaXmark, FaChevronDown, FaMagnifyingGlass, FaUser } from 'react-icons/fa6';
 import { supabase } from '../lib/supabase';
 
+// ✅ 1. Import SearchBar ที่เราเพิ่งสร้างเข้ามา
+import SearchBar from './SearchBar';
+
 export default function Navbar() {
   const router = useRouter();
   
   const [scrolled, setScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openSubMenu, setOpenSubMenu] = useState(""); 
-  
-  // Search State
-  const [searchTerm, setSearchTerm] = useState("");
   
   // Auth State
   const [user, setUser] = useState<any>(null);
@@ -72,6 +72,7 @@ export default function Navbar() {
           <img src="https://raw.githubusercontent.com/WaiHmueThit23/wallcraft_assets/main/Logo_Images/wallcraft%20logo%20grey%20color.webp" alt="Logo" className="h-6 w-auto" />
         </Link>
         <div className="flex items-center space-x-5">
+          {/* บนมือถือใช้แว่นขยายกดไปหน้าค้นหาตรงๆ ดีที่สุดครับ */}
           <Link href="/search">
             <FaMagnifyingGlass className="text-white/60 text-sm" />
           </Link>
@@ -115,13 +116,11 @@ export default function Navbar() {
               <FaChevronDown className={`ml-3 text-[8px] transition-transform ${openSubMenu === 'art' ? 'rotate-180' : ''}`} />
             </button>
             <div className={`flex flex-col items-center space-y-5 overflow-hidden transition-all duration-500 ${openSubMenu === 'art' ? 'max-h-[200px] mt-8 opacity-100' : 'max-h-0 opacity-0'}`}>
-              {/* ✅ เรียกใช้โฟลเดอร์ art-gallery ที่สร้างใหม่ */}
               <Link href="/art-gallery/visual-showcase" onClick={closeMobileMenu} className="text-[10px] uppercase tracking-[0.3em] text-[#c2bfb6]">Visual Showcase</Link>
               <Link href="/art-gallery/project-showcase" onClick={closeMobileMenu} className="text-[10px] uppercase tracking-[0.3em] text-[#c2bfb6]">Project Showcase</Link>
             </div>
           </div>
 
-          {/* ✅ เรียกใช้โฟลเดอร์ match-inspiration ที่สร้างใหม่ */}
           <Link href="/match-inspiration" onClick={closeMobileMenu} className="text-[11px] uppercase tracking-[0.4em] text-white">Match Inspiration</Link>
           
           <hr className="w-12 border-white/20 my-4" />
@@ -177,25 +176,20 @@ export default function Navbar() {
               </div>
                <div className="absolute left-1/2 -translate-x-1/2 top-full pt-4 w-64 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300">
                 <div className="bg-zinc-900/95 backdrop-blur-2xl border border-white/5 p-6 space-y-4 shadow-2xl rounded-sm">
-                  {/* ✅ เปลี่ยนเป็น art-gallery */}
                   <Link href="/art-gallery/visual-showcase" className="block text-[9px] uppercase tracking-[0.3em] text-[#c2bfb6] hover:text-[#B08038]">Visual Showcase</Link>
                   <Link href="/art-gallery/project-showcase" className="block text-[9px] uppercase tracking-[0.3em] text-[#c2bfb6] hover:text-[#B08038]">Project Showcase</Link>
                 </div>
               </div>
             </div>
 
-            {/* ✅ เรียกใช้ match-inspiration และ studio-qa */}
             <Link href="/match-inspiration" className="text-[10px] uppercase tracking-[0.4em] text-[#c2bfb6] hover:text-[#B08038] transition-colors whitespace-nowrap">Match Inspiration</Link>
             <Link href="/support/studio-qa" className="text-[10px] uppercase tracking-[0.4em] text-[#c2bfb6] hover:text-[#B08038] transition-colors whitespace-nowrap">Studio Q&A</Link>
           </div>
 
           <div className="flex-1 flex items-center justify-end space-x-4 lg:space-x-6">
-            <button 
-              onClick={() => router.push('/search')}
-              className="text-[#c2bfb6] hover:text-white transition text-[9px] tracking-widest uppercase flex items-center whitespace-nowrap"
-            >
-              Search <FaMagnifyingGlass className="ml-3 opacity-60" />
-            </button>
+            
+            {/* ✅ 2. แทนที่ปุ่ม Search เดิมด้วย <SearchBar /> ตรงนี้เลยครับ */}
+            <SearchBar />
             
             <div className="w-px h-4 bg-white/20 hidden lg:block"></div>
 

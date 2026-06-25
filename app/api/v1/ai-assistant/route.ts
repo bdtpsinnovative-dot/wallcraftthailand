@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pipeline, env, RawImage } from '@xenova/transformers';
 import { createClient } from '@supabase/supabase-js';
-import sharp from 'sharp'; // 🌟 1. ดึงพระเอกของเรามาใช้แกะภาพดิบ
+import { Jimp } from 'jimp'; // 🌟 1. เปลี่ยนมาใช้ Jimp แทน Sharp เพื่อแก้ปัญหา Crash บน Windows
 
 // 🌟 2. ตั้งค่า Environment สำหรับ Vercel
 env.allowLocalModels = false; 
@@ -40,15 +40,20 @@ export async function POST(req: NextRequest) {
             mimeType = 'image/jpeg'; 
         }
 
-        // 🚀 4. จุดแก้ปัญหาไม้ตาย: ใช้ Sharp แกะภาพเป็น Pixel ดิบๆ
-        // วิธีนี้จะทำงานบนแรม (Memory) ไวมาก และ TypeScript ยอมรับ 100% ครับ!
-        const { data, info } = await sharp(buffer)
-            .toColorspace('srgb') // แปลงให้เป็นสีมาตรฐานที่ AI ชอบ
-            .raw() // ถอดเป็นข้อมูลพิกเซลดิบ
-            .toBuffer({ resolveWithObject: true });
+        // 🚀 4. ใช้ Jimp ถอดข้อมูลภาพเป็น Pixel ดิบแทน Sharp (เพื่อป้องกัน Windows Server Crash)
+        const jimpImage = await Jimp.read(buffer);
+        const { width, height, data } = jimpImage.bitmap; // data จะเป็น RGBA 4 channels
+        
+        // แปลง RGBA เป็น RGB (3 channels) ให้ตรงกับสเปคของ AI Model
+        const rgbData = new Uint8Array(width * height * 3);
+        for (let i = 0; i < width * height; i++) {
+            rgbData[i * 3] = data[i * 4];         // R
+            rgbData[i * 3 + 1] = data[i * 4 + 1]; // G
+            rgbData[i * 3 + 2] = data[i * 4 + 2]; // B
+        }
 
         // สร้างภาพจำลองขึ้นมาใหม่จากข้อมูลพิกเซลดิบ
-        const image = new RawImage(data, info.width, info.height, info.channels);
+        const image = new RawImage(rgbData, width, height, 3);
         
         // ยัดให้ AI แปลงเวกเตอร์ได้เลย!
         const output = await extractor(image);
