@@ -69,7 +69,7 @@ export default function Navbar() {
       {/* 🌟 Mobile Top Bar - z-[100] */}
       <nav className={`fixed top-0 w-full z-[100] px-6 flex justify-between items-center md:hidden transition-all duration-500 bg-black/95 backdrop-blur-md border-b border-white/5 ${scrolled ? 'py-4' : 'py-5'}`}>
         <Link href="/">
-          <img src="https://raw.githubusercontent.com/WaiHmueThit23/wallcraft_assets/main/Logo_Images/wallcraft%20logo%20grey%20color.webp" alt="Logo" className="h-6 w-auto" />
+          <img src="https://raw.githubusercontent.com/WaiHmueThit23/wallcraft_assets/main/Logo_Images/wallcraft%20logo%20grey%20color.webp" alt="Logo" className="h-6 w-auto" width="150" height="24" />
         </Link>
         <div className="flex items-center space-x-5">
           {/* บนมือถือใช้แว่นขยายกดไปหน้าค้นหาตรงๆ ดีที่สุดครับ */}
@@ -146,7 +146,7 @@ export default function Navbar() {
           
           <div className="flex-1 flex items-center justify-start">
             <Link href="/">
-              <img src="https://raw.githubusercontent.com/WaiHmueThit23/wallcraft_assets/main/Logo_Images/wallcraft%20logo%20grey%20color.webp" alt="Wallcraft Logo" className="h-5 lg:h-6 opacity-90" />
+              <img src="https://raw.githubusercontent.com/WaiHmueThit23/wallcraft_assets/main/Logo_Images/wallcraft%20logo%20grey%20color.webp" alt="Wallcraft Logo" className="h-5 lg:h-6 opacity-90" width="150" height="24" />
             </Link>
           </div>
 

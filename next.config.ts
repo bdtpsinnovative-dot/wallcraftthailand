@@ -5,6 +5,15 @@ const nextConfig: NextConfig = {
   experimental: {},
   productionBrowserSourceMaps: false,
   
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'raw.githubusercontent.com',
+      },
+    ],
+  },
+  
   async redirects() {
     return [
       // 1. ดักคนที่พิมพ์ตก s หรือบอทที่เข้าลิงก์เก่า -> โยนไปหน้าใหม่ที่มี s (ตรงตัวเป๊ะ!)

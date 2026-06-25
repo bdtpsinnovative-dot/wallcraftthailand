@@ -41,7 +41,7 @@ export default function Footer() {
           {/* --- Column 2: Collections (Takes 2 columns) --- */}
           <div className="lg:col-span-2">
              {/* Header - Kept Original size */}
-             <h4 className="text-s font-bold uppercase tracking-[0.2em] text-[#B08038] mb-8 hidden lg:block">Collections</h4>
+             <h2 className="text-s font-bold uppercase tracking-[0.2em] text-[#B08038] mb-8 hidden lg:block">Collections</h2>
              
              <div className="grid grid-cols-1 sm:grid-cols-3 lg:gap-8">
                
@@ -114,7 +114,7 @@ export default function Footer() {
 
           {/* --- Column 3: Technical Support --- */}
           <div className="lg:col-span-1 mt-8 lg:mt-0">
-            <h4 className="text-s font-bold uppercase tracking-[0.2em] text-[#B08038] mb-8">Technical Support</h4>
+            <h2 className="text-s font-bold uppercase tracking-[0.2em] text-[#B08038] mb-8">Technical Support</h2>
             {/* Links - Set to 12px */}
             <ul className="space-y-4 text-[12px] text-[#c2bfb6] font-light tracking-wide">
               <li><Link href="/support/installation" className= "text-[#c2bfb6] hover:text-[#B08038] transition-colors">Installation Guide</Link></li>
@@ -126,7 +126,7 @@ export default function Footer() {
 
           {/* --- Column 4: Brand/Socials --- */}
           <div className="lg:col-span-1 mt-8 lg:mt-0">
-            <h4 className="text-s font-bold uppercase tracking-[0.2em] text-[#B08038] mb-8">Contact Us</h4>
+            <h2 className="text-s font-bold uppercase tracking-[0.2em] text-[#B08038] mb-8">Contact Us</h2>
             {/* Links - Set to 12px */}
             <ul className="space-y-4 text-[12px] text-[#c2bfb6] font-light tracking-wide mb-6">
               <li><Link href="/contact/showrooms" className= "text-[#c2bfb6] hover:text-[#B08038] transition-colors">Showrooms</Link></li>
@@ -134,13 +134,13 @@ export default function Footer() {
             </ul>
             
             <div className="flex space-x-4">
-              <a href="https://www.facebook.com/WallcraftThailand" className="w-10 h-10 lg:w-8 lg:h-8 rounded-full bg-white/5 flex items-center justify-center text-[#c2bfb6] hover:bg-[#B08038] hover:text-white transition-all">
+              <a href="https://www.facebook.com/WallcraftThailand" aria-label="Wallcraft Facebook Page" className="w-10 h-10 lg:w-8 lg:h-8 rounded-full bg-white/5 flex items-center justify-center text-[#c2bfb6] hover:bg-[#B08038] hover:text-white transition-all">
                 <FaFacebookF className="text-[30px] lg:text-[16px]" />
               </a>
-              <a href="#" className="w-10 h-10 lg:w-8 lg:h-8 rounded-full bg-white/5 flex items-center justify-center text-[#c2bfb6] hover:bg-[#B08038] hover:text-white transition-all">
+              <a href="#" aria-label="Wallcraft Instagram Page" className="w-10 h-10 lg:w-8 lg:h-8 rounded-full bg-white/5 flex items-center justify-center text-[#c2bfb6] hover:bg-[#B08038] hover:text-white transition-all">
                 <FaInstagram className="text-[30px] lg:text-[16px]" />
               </a>
-              <a href="https://lin.ee/qIS21zi" className="w-10 h-10 lg:w-8 lg:h-8 rounded-full bg-white/5 flex items-center justify-center text-[#c2bfb6] hover:bg-[#B08038] hover:text-white transition-all">
+              <a href="https://lin.ee/qIS21zi" aria-label="Wallcraft LINE Official Account" className="w-10 h-10 lg:w-8 lg:h-8 rounded-full bg-white/5 flex items-center justify-center text-[#c2bfb6] hover:bg-[#B08038] hover:text-white transition-all">
                 <FaLine className="text-[30px] lg:text-[16px]" />
               </a>
             </div>

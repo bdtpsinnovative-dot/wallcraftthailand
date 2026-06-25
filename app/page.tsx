@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { FaArrowRight, FaLayerGroup } from 'react-icons/fa6';
 
 // --- Constants: Image URLs ---
@@ -148,8 +149,15 @@ export default function HomePage() {
                     key={index} 
                     className={`float-card card-${index} ${fadingIndices.includes(index) ? 'card-updating' : ''}`}
                   >
-                      {/* ✅ 4. แก้ alt ตรงนี้ ให้เวลา Google ค้นรูปเจอแล้วรู้ว่าคืออะไร */}
-                      <img src={src} className="w-full h-full object-cover" alt={`ไอเดียผนังตกแต่งบ้าน ระแนงไม้พรีเมียม Wallcraft แบบที่ ${index + 1}`} />
+                      {/* ✅ 4. ใช้ Next.js Image เพื่อแก้ปัญหา Properly Size Images, Format และ Lazy Loading แบบ 100% */}
+                      <Image 
+                        src={src} 
+                        fill
+                        sizes="(max-width: 1023px) 150px, 320px"
+                        className="object-cover" 
+                        alt={`ไอเดียผนังตกแต่งบ้าน ระแนงไม้พรีเมียม Wallcraft แบบที่ ${index + 1}`} 
+                        priority={true} // บังคับโหลดด่วนเพื่อแก้ปัญหา LCP (Largest Contentful Paint)
+                      />
                   </div>
                 ))}
             </div>
