@@ -1,10 +1,10 @@
- import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
 
 // API สำหรับสร้างโครงการใหม่
 export async function POST(request: Request) {
@@ -20,6 +20,23 @@ export async function POST(request: Request) {
       .insert({ project_name })
       .select('id, project_name')
       .single();
+
+    if (error) throw error;
+
+    return NextResponse.json(data);
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+// API สำหรับดึงข้อมูลโครงการทั้งหมด
+export async function GET(request: Request) {
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('id, project_name')
+      .order('project_name', { ascending: true })
+      .limit(100);
 
     if (error) throw error;
 
