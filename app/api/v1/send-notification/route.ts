@@ -1,24 +1,29 @@
 // app/api/v1/send-notification/route.ts
 import { messaging } from '../../../lib/firebase-admin';
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-// 🌟 บังคับให้เส้นนี้ทำงานแบบ Dynamic Server เสมอ ป้องกันการเอ๋อตอน npm run build ครับนาย
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    // 1. รับค่าที่ส่งมาจากส่วนอื่นๆ
+    // 1. ตรวจสอบ Authorization (Basic Security)
+    // TODO: แนะนำให้เพิ่มการตรวจสอบ API Key หรือ Secret Token ตรงนี้ในอนาคต
+    const authHeader = request.headers.get('authorization');
+    // if (authHeader !== `Bearer ${process.env.NOTIFICATION_SECRET}`) {
+    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // }
+
     const { user_id, tokens, title, body, data } = await request.json();
 
     if (!tokens || tokens.length === 0) {
       return NextResponse.json({ message: 'No tokens found' }, { status: 200 });
     }
 
-    // 2. เตรียม Payload ที่รองรับทั้ง Android และ iOS
     const message = {
       notification: { title, body },
-      data: data || {}, // ส่งพวก order_id ไปให้แอปเอาไปเปิดหน้าถูก
-      tokens: tokens, // Array ของ tokens ที่ดึงมาจาก jsonb ใน profiles
+      data: data || {},
+      tokens: tokens,
       android: {
         priority: 'high' as const,
         notification: { sound: 'default', clickAction: 'FLUTTER_NOTIFICATION_CLICK' },
@@ -28,10 +33,9 @@ export async function POST(request: Request) {
       },
     };
 
-    // 3. ยิงออกไปหาทุกเครื่องพร้อมกันผ่าน Firebase Admin ตัวปกติ
     const response = await messaging.sendEachForMulticast(message);
 
-    // 4. ถ้าส่งไม่สำเร็จเพราะ Token หมดอายุ นายสามารถเอาตัวแปร failedTokens ไปกรองออกจาก Supabase ได้เลยครับ
+    // ลบ Token ที่ตายแล้วออกจาก Database
     if (response.failureCount > 0) {
       const failedTokens: string[] = [];
       response.responses.forEach((resp, idx) => {
@@ -40,15 +44,32 @@ export async function POST(request: Request) {
         }
       });
       
-      // 💡 โน้ตไว้เผื่อนายมาเขียนต่อ: 
-      // เอา failedTokens ไปอัปเดตลบออกจากอาเรย์ในฟิลด์ jsonb ของ Supabase ได้เลยครับ
-      console.log(`⚠️ มี Token ส่งไม่ผ่านจำนวน ${response.failureCount} ตัว`, failedTokens);
+      console.log(`⚠️ พบ Token ส่งไม่ผ่าน ${response.failureCount} ตัว กำลังลบออกจากระบบ...`, failedTokens);
+      
+      // เรียกใช้ Supabase Service Role เพื่อข้าม RLS
+      const supabaseAdmin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      // เรียก RPC เพื่อลบ Token ขยะออกจาก profiles 
+      // (ต้องไปสร้าง RPC ชื่อ remove_invalid_fcm_tokens ใน Supabase ด้วย)
+      const { error: dbError } = await supabaseAdmin.rpc('remove_invalid_fcm_tokens', {
+        invalid_tokens: failedTokens
+      });
+
+      if (dbError) {
+        console.error("❌ ลบ Dead Tokens ไม่สำเร็จ:", dbError);
+      } else {
+        console.log("✅ ลบ Dead Tokens เรียบร้อยแล้ว");
+      }
     }
 
     return NextResponse.json({ success: true, sentCount: response.successCount });
 
   } catch (error: any) {
     console.error("❌ Notification Route Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // ป้องกันข้อมูลภายในรั่วไหลด้วยการส่งกลับแค่คำว่า Internal Server Error
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
