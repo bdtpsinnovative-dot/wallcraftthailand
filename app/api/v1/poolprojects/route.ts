@@ -172,7 +172,8 @@ export async function PATCH(request: Request) {
       order_id, order_item_project_id, customer_name, phone,            
       project_name, area_sqm, product_category_id, project_type_id, is_important,
       account_developer, contact_developer, account_architecture, contact_architecture,
-      account_interior, contact_interior, account_contractor, contact_contractor, note
+      account_interior, contact_interior, account_contractor, contact_contractor, note,
+      new_image_base64
     } = body;
 
     if (!token) return NextResponse.json({ error: 'กรุณาล็อกอินก่อนใช้งาน (ไม่พบ Token)' }, { status: 401 });
@@ -233,6 +234,7 @@ export async function PATCH(request: Request) {
     let orderUpdateData: any = {};
     let projectUpdateData: any = {};
     let itemUpdateData: any = {};
+    let newlyUploadedImageUrl: string | null = null;
 
     const checkAndLog = (field: string, label: string, newVal: any, oldVal: any, targetDataObj: any) => {
       if (isChanged(newVal, oldVal)) {
@@ -241,6 +243,30 @@ export async function PATCH(request: Request) {
         changesMade[field] = { from: oldVal, to: newVal }; 
       }
     };
+
+    // 🌟 3. จัดการอัปโหลดรูปภาพใหม่
+    if (new_image_base64 && existingItem?.id) {
+      try {
+        const buffer = Buffer.from(new_image_base64, 'base64');
+        const fileName = `order_${order_id}_project_${order_item_project_id}_${Date.now()}.webp`;
+        const { data: uploadData } = await supabase.storage.from('orders').upload(fileName, buffer, { contentType: 'image/webp' });
+        
+        if (uploadData) {
+          const { data: publicUrl } = supabase.storage.from('orders').getPublicUrl(fileName);
+          const newUrl = publicUrl.publicUrl;
+          
+          let currentImages = existingItem.images || [];
+          if (!Array.isArray(currentImages)) currentImages = [];
+          
+          itemUpdateData.images = [...currentImages, newUrl];
+          detailTags.push(`เพิ่มรูปภาพแนบใหม่ 1 รูป`);
+          changesMade['images'] = { from: currentImages.length, to: currentImages.length + 1 };
+          newlyUploadedImageUrl = newUrl;
+        }
+      } catch (e) {
+        console.error("Error uploading new image:", e);
+      }
+    }
 
     const getNameFromId = async (tableName: string, id: any) => {
       if (!id) return '';
@@ -314,7 +340,10 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ message: 'ไม่มีข้อมูลเปลี่ยนแปลง' });
     }
 
-    return NextResponse.json({ message: 'อัปเดตข้อมูลและบันทึกประวัติสำเร็จ' });
+    return NextResponse.json({ 
+      message: 'อัปเดตข้อมูลและบันทึกประวัติสำเร็จ',
+      new_image_url: newlyUploadedImageUrl
+    });
 
   } catch (error: any) {
     console.error('Update Error:', error);
