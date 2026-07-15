@@ -4,13 +4,13 @@ export async function GET() {
   try {
     const updateData = {
       // เอาไว้สำหรับแอปเวอร์ชันเก่าที่ยังไม่ได้อัปเดตโค้ดใหม่ จะได้ไม่พัง
-      latest_version: "1.0.6", 
+      latest_version: "2.0.0", 
       // แยก Version ของ Android และ iOS (สำหรับแอปเวอร์ชันใหม่)
-      latest_version_android: "1.2.0",
-      latest_version_ios: "1.0.6",
+      latest_version_android: "2.0.0",
+      latest_version_ios: "2.0.0",
       // แยก Link ของ Android (APK) และ iOS (TestFlight)
-      download_url_android: "https://app.wallcraftthailand.com/wallcraft1.2.0.apk", 
-      download_url_ios:  "https://testflight.apple.com/join/YOUR_TESTFLIGHT_ID", 
+      download_url_android: "https://app.wallcraftthailand.com/base%20(4).apk", 
+      download_url_ios:  "itms-beta://", 
       release_date: "2026-05-12",
       change_log: "เพิ่มระบบตรวจสอบการอัปเดตอัตโนมัติ และปรับปรุงประสิทธิภาพแอป เพิ่มระบบสอตกสินค้าและติดตามสินค้า"
     };
