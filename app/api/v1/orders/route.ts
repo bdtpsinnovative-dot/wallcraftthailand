@@ -91,6 +91,55 @@ export async function POST(request: Request) {
 
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
 
+    // 🛡️ ป้องกันการบันทึกข้อมูลซ้ำซ้อนจากฝั่ง API (Double Submit / Rate Limit)
+    if (currentUserId) {
+      const duplicateCheckWindow = new Date(Date.now() - 120000).toISOString(); // ย้อนหลัง 2 นาที
+      const { data: recentOrders } = await supabase
+        .from('orders')
+        .select(`
+          id, 
+          customer_name, 
+          phone, 
+          company_id,
+          order_items (
+            product_category_id,
+            note
+          )
+        `)
+        .eq('user_id', currentUserId)
+        .gt('created_at', duplicateCheckWindow)
+        .order('created_at', { ascending: false });
+
+      if (recentOrders && recentOrders.length > 0) {
+        const lastOrder = recentOrders[0];
+
+        // ดึงรายละเอียดประเภทสินค้าและโน้ตของรายการสินค้าที่มีอยู่เดิมและที่กำลังส่งมาใหม่ เพื่อเปรียบเทียบกัน
+        const lastOrderItemsKey = Array.isArray(lastOrder.order_items)
+          ? lastOrder.order_items
+              .map((item: any) => `${item.product_category_id || ''}:${String(item.note || '').trim()}`)
+              .sort()
+              .join('|')
+          : '';
+        const incomingItemsKey = Array.isArray(items)
+          ? items
+              .map((item: any) => `${item.product_category_id || ''}:${String(item.note || '').trim()}`)
+              .sort()
+              .join('|')
+          : '';
+
+        // เทียบความเหมือนกันเพื่อความแน่ใจว่าเป็นข้อมูลชุดเดิมจากการกดซ้ำ (รวมประเภทสินค้าด้วย)
+        if (
+          String(lastOrder.customer_name || '') === String(customer_name || '') &&
+          String(lastOrder.phone || '') === String(phone || '') &&
+          String(lastOrder.company_id || '') === String(company_id || '') &&
+          lastOrderItemsKey === incomingItemsKey
+        ) {
+          console.warn(`[API] ตรวจพบการบันทึก Order ซ้ำซ้อนจาก User: ${currentUserId} ภายใน 2 นาที (ประเภทสินค้า โน้ต และรายละเอียดตรงกัน) ระบบจะนำข้อมูลเดิมไปตอบกลับเพื่อป้องกันข้อมูลเบิ้ล`);
+          return NextResponse.json({ success: true, orderId: lastOrder.id });
+        }
+      }
+    }
+
     // 📝 1. บันทึก Order หลัก
     const { data: order, error: orderError } = await supabase
       .from('orders')
@@ -245,6 +294,16 @@ export async function POST(request: Request) {
                   .map((resp, index) => resp.success ? null : tokens[index])
                   .filter((token): token is string => Boolean(token));
                 console.error(`[FCM] Failed tokens for ${target.id}:`, failedTokens);
+
+                // ลบ Token ที่ใช้ไม่ได้ออกจากฐานข้อมูล (profiles)
+                const { error: dbError } = await supabase.rpc('remove_invalid_fcm_tokens', {
+                  invalid_tokens: failedTokens
+                });
+                if (dbError) {
+                  console.error("❌ [FCM] ลบ Dead Tokens ไม่สำเร็จ:", dbError);
+                } else {
+                  console.log("✅ [FCM] ลบ Dead Tokens เรียบร้อยแล้ว:", failedTokens);
+                }
               }
             } catch (fcmErr) {
               console.error(`[FCM] Failed to send to ${target.id}:`, fcmErr);
