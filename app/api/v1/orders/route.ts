@@ -2,6 +2,19 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+
+// ==================================================
+// ☁️ Cloudflare R2 Client Initialization
+// ==================================================
+const r2Client = new S3Client({
+  region: 'auto',
+  endpoint: process.env.R2_ENDPOINT || `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
+  },
+});
 
 // ==================================================
 // 🔔 1. เตรียมใช้งาน Firebase Admin (ทำแค่ครั้งเดียว)
@@ -45,14 +58,14 @@ export async function GET() {
       supabase.from('customer_types').select('*').order('created_at'),
       supabase.from('product_categories').select('*').order('created_at'),
       supabase.from('projects').select('*').order('created_at'),
-      supabase.from('project_types').select('*').order('id'), // 👈 เพิ่มบรรทัดนี้
+      supabase.from('project_types').select('*').order('id'),
     ]);
 
     return NextResponse.json({
       customer_types: customerTypes.data || [],
       product_categories: productCategories.data || [],
       projects: projects.data || [],
-      project_types: projectTypes.data || [] // 🟢 2. ส่งแนบกลับไปให้ Flutter ด้วย 👈
+      project_types: projectTypes.data || []
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -113,7 +126,6 @@ export async function POST(request: Request) {
       if (recentOrders && recentOrders.length > 0) {
         const lastOrder = recentOrders[0];
 
-        // ดึงรายละเอียดประเภทสินค้าและโน้ตของรายการสินค้าที่มีอยู่เดิมและที่กำลังส่งมาใหม่ เพื่อเปรียบเทียบกัน
         const lastOrderItemsKey = Array.isArray(lastOrder.order_items)
           ? lastOrder.order_items
               .map((item: any) => `${item.product_category_id || ''}:${String(item.note || '').trim()}`)
@@ -127,14 +139,13 @@ export async function POST(request: Request) {
               .join('|')
           : '';
 
-        // เทียบความเหมือนกันเพื่อความแน่ใจว่าเป็นข้อมูลชุดเดิมจากการกดซ้ำ (รวมประเภทสินค้าด้วย)
         if (
           String(lastOrder.customer_name || '') === String(customer_name || '') &&
           String(lastOrder.phone || '') === String(phone || '') &&
           String(lastOrder.company_id || '') === String(company_id || '') &&
           lastOrderItemsKey === incomingItemsKey
         ) {
-          console.warn(`[API] ตรวจพบการบันทึก Order ซ้ำซ้อนจาก User: ${currentUserId} ภายใน 2 นาที (ประเภทสินค้า โน้ต และรายละเอียดตรงกัน) ระบบจะนำข้อมูลเดิมไปตอบกลับเพื่อป้องกันข้อมูลเบิ้ล`);
+          console.warn(`[API] ตรวจพบการบันทึก Order ซ้ำซ้อนจาก User: ${currentUserId} ภายใน 2 นาที ระบบจะนำข้อมูลเดิมไปตอบกลับ`);
           return NextResponse.json({ success: true, orderId: lastOrder.id });
         }
       }
@@ -156,7 +167,7 @@ export async function POST(request: Request) {
 
     if (orderError) throw orderError;
     
-    // 📦 2. ตรวจสอบ Items ที่ส่งมา
+    // 📦 2. ตรวจสอบและอัปโหลดรูปภาพลง Cloudflare R2
     let orderItemsToProcess = items && Array.isArray(items) && items.length > 0 ? items : [{}];
 
     const { data: allProjects } = await supabase.from('projects').select('id, project_name');
@@ -168,13 +179,21 @@ export async function POST(request: Request) {
         for (let i = 0; i < item.images.length; i++) {
           try {
             const buffer = Buffer.from(item.images[i], 'base64');
-            const fileName = `order_${order.id}_${Date.now()}_${i}.webp`;
-            const { data: uploadData } = await supabase.storage.from('orders').upload(fileName, buffer, { contentType: 'image/webp' });
-            if (uploadData) {
-              const { data: publicUrl } = supabase.storage.from('orders').getPublicUrl(fileName);
-              itemImageUrls.push(publicUrl.publicUrl);
-            }
-          } catch (e) { console.error("Skip Image"); }
+            const key = `orders/order_${order.id}_${Date.now()}_${i}.webp`;
+            
+            await r2Client.send(new PutObjectCommand({
+              Bucket: process.env.R2_BUCKET_NAME || 'wallcraft',
+              Key: key,
+              Body: buffer,
+              ContentType: 'image/webp',
+            }));
+
+            const baseUrl = (process.env.R2_PUBLIC_URL || 'https://pub-258bd10e7e8c4a7690a74c54cfbdef93.r2.dev').replace(/\/$/, '');
+            const publicUrl = `${baseUrl}/${key}`;
+            itemImageUrls.push(publicUrl);
+          } catch (e) {
+            console.error("Cloudflare R2 Upload Error:", e);
+          }
         }
       }
 
@@ -201,8 +220,6 @@ export async function POST(request: Request) {
             order_item_id: savedItem.id,
             project_name: pName,
             area_sqm: usage.area_sqm ? parseFloat(usage.area_sqm) : 0,
-            
-            // 🌟 เพิ่มบรรทัดนี้ลงไป เพื่อเอาค่าที่เซลส์เลือกไปเซฟลง DB
             project_type_id: usage.project_type_id || item.project_type_id || null 
           };
           return injectCompanyNames(projectRow, typeName, companyName);
@@ -223,14 +240,12 @@ export async function POST(request: Request) {
     // 🔔 5. สร้างประวัติแจ้งเตือนลง DB + ยิง FCM แบบแยกเงื่อนไข
     // ==================================================
     try {
-      // 1. ดึงข้อมูล User ทุกคน (ยกเว้นตัวเอง) พร้อมค่า Setting
       const { data: allUsers } = await supabase
         .from('profiles')
         .select('id, fcm_tokens, team_id, noti_level, is_muted')
         .neq('id', currentUserId);
 
       if (allUsers && allUsers.length > 0) {
-        // 2. กรองผู้ที่จะได้รับแจ้งเตือนตามเงื่อนไข
         const recipients = allUsers.filter(member => {
           if (member.noti_level === 'none') return false; 
           if (member.noti_level === 'all') return true;  
@@ -243,7 +258,6 @@ export async function POST(request: Request) {
           const title = 'ออเดอร์ใหม่เข้าทีม!';
           const bodyMsg = `${creatorName} เพิ่มรายการจาก ${customerDisplay}`;
 
-          // บันทึกลงตาราง notifications
           const notificationPayloads = recipients.map(member => ({
             recipient_id: member.id,
             creator_id: currentUserId,
@@ -255,7 +269,6 @@ export async function POST(request: Request) {
           const { error: dbError } = await supabase.from('notifications').insert(notificationPayloads);
           if (dbError) console.error("[DB] Error saving notification history:", dbError);
 
-          // Send FCM to every saved device token for each recipient.
           for (const target of recipients) {
             const tokens = extractFcmTokens(target.fcm_tokens);
             if (tokens.length === 0) continue;
@@ -295,7 +308,6 @@ export async function POST(request: Request) {
                   .filter((token): token is string => Boolean(token));
                 console.error(`[FCM] Failed tokens for ${target.id}:`, failedTokens);
 
-                // ลบ Token ที่ใช้ไม่ได้ออกจากฐานข้อมูล (profiles)
                 const { error: dbError } = await supabase.rpc('remove_invalid_fcm_tokens', {
                   invalid_tokens: failedTokens
                 });
@@ -316,7 +328,6 @@ export async function POST(request: Request) {
       console.error('[FCM] Error process notifications:', err);
     }
 
-    // 🌟 🌟 🌟 นี่คือส่วนที่โดนลบหายไปครับนาย! 🌟 🌟 🌟
     return NextResponse.json({ success: true, orderId: order.id });
 
   } catch (err: any) {
@@ -325,7 +336,6 @@ export async function POST(request: Request) {
   }
 }
 
-// ฟังก์ชันช่วยเหลือสำหรับหยอดชื่อบริษัท
 function injectCompanyNames(projectRow: any, typeName: string, companyName: string | null) {
   const typeStr = typeName.toLowerCase();
   if (typeStr.includes('developer')) projectRow.account_developer = companyName;
