@@ -242,11 +242,11 @@ export async function POST(request: Request) {
     try {
       const { data: allUsers } = await supabase
         .from('profiles')
-        .select('id, fcm_tokens, team_id, noti_level, is_muted')
-        .neq('id', currentUserId);
+        .select('id, fcm_tokens, team_id, noti_level, is_muted');
 
       if (allUsers && allUsers.length > 0) {
         const recipients = allUsers.filter(member => {
+          if (member.id === currentUserId) return true; // 🌟 ให้บันทึกการแจ้งเตือนสำหรับผู้สร้างออเดอร์ด้วย
           if (member.noti_level === 'none') return false; 
           if (member.noti_level === 'all') return true;  
           if (member.noti_level === 'team' && member.team_id === team_id) return true; 
@@ -255,16 +255,20 @@ export async function POST(request: Request) {
 
         if (recipients.length > 0) {
           const customerDisplay = companyName || customer_name || 'ลูกค้าทั่วไป';
-          const title = 'ออเดอร์ใหม่เข้าทีม!';
-          const bodyMsg = `${creatorName} เพิ่มรายการจาก ${customerDisplay}`;
 
-          const notificationPayloads = recipients.map(member => ({
-            recipient_id: member.id,
-            creator_id: currentUserId,
-            title: title,
-            body: bodyMsg,
-            order_id: order.id
-          }));
+          const notificationPayloads = recipients.map(member => {
+            const isCreator = member.id === currentUserId;
+            const title = isCreator ? 'บันทึกออเดอร์สำเร็จ!' : 'ออเดอร์ใหม่เข้าทีม!';
+            const bodyMsg = isCreator ? `คุณเพิ่มรายการจาก ${customerDisplay}` : `${creatorName} เพิ่มรายการจาก ${customerDisplay}`;
+
+            return {
+              recipient_id: member.id,
+              creator_id: currentUserId,
+              title: title,
+              body: bodyMsg,
+              order_id: order.id
+            };
+          });
 
           const { error: dbError } = await supabase.from('notifications').insert(notificationPayloads);
           if (dbError) console.error("[DB] Error saving notification history:", dbError);

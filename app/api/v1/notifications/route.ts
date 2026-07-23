@@ -26,13 +26,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Invalid Token' }, { status: 401 });
     }
 
-    // 3. ดึงข้อมูล
+    // 3. ดึงข้อมูล 20 รายการล่าสุดเพื่อความรวดเร็วและไม่รกหน้าจอ
     const { data: notifications, error } = await supabase
       .from('notifications')
       .select('*, creator:profiles!notifications_creator_id_fkey(full_name, avatar_url)')
       .eq('recipient_id', user.id)
       .order('created_at', { ascending: false }) 
-      .limit(50); 
+      .limit(20); 
 
     if (error) throw error;
 
