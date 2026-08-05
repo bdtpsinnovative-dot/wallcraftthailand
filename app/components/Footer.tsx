@@ -26,7 +26,7 @@ export default function Footer() {
           {/* --- Column 1: Contact --- */}
           <div className="lg:col-span-1">
             {/* Title - Kept Large */}
-            <Link href="/" className="text-2xl font-bold tracking-widest text-[#B08038] uppercase mb-6 block">
+            <Link href="/" prefetch={false} className="text-2xl font-bold tracking-widest text-[#B08038] uppercase mb-6 block">
               TPS GARDEN FURNITURE CO., LTD
             </Link>
             {/* Body Text - Set to 12px */}
@@ -56,14 +56,14 @@ export default function Footer() {
                  </button>
                  {/* Links - Set to 12px */}
                  <div className={`${openSeries.craft ? 'flex' : 'hidden'} lg:flex flex-col space-y-3 pb-2 lg:pb-0`}>
-                    <Link href="/collections/tarra-stone" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Tarra Stone</Link>
-                    <Link href="/collections/panorama" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Panorama</Link>
-                    <Link href="/collections/strength-rock" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Strength Rock</Link>
-                    <Link href="/collections/geo-form" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Geoform</Link>
-                    <Link href="/collections/urban-form" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Urban Form</Link>
-                    <Link href="/collections/nature-grain" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Nature Grain</Link>
-                    <Link href="/collections/rust" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Rust</Link>
-                    <Link href="/collections/finesse" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Finesse</Link>
+                    <Link href="/collections/tarra-stone" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Tarra Stone</Link>
+                    <Link href="/collections/panorama" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Panorama</Link>
+                    <Link href="/collections/strength-rock" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Strength Rock</Link>
+                    <Link href="/collections/geo-form" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Geoform</Link>
+                    <Link href="/collections/urban-form" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Urban Form</Link>
+                    <Link href="/collections/nature-grain" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Nature Grain</Link>
+                    <Link href="/collections/rust" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Rust</Link>
+                    <Link href="/collections/finesse" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Finesse</Link>
                   </div>
                </div>
 
@@ -78,14 +78,14 @@ export default function Footer() {
                  </button>
                  {/* Links - Set to 12px */}
                  <div className={`${openSeries.luxe ? 'flex' : 'hidden'} lg:flex flex-col space-y-3 pb-2 lg:pb-0`}>
-                   <Link href="/collections/fabric" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Fabric</Link>
-                   <Link href="/collections/leather" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Leather</Link>
-                   <Link href="/collections/metallic" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Metallic</Link>
-                   <Link href="/collections/semi-outdoor" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Semi Outdoor</Link>
-                   <Link href="/collections/signature" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Signature</Link>
-                   <Link href="/collections/stone" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Stone</Link>
-                   <Link href="/collections/velvet" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Velvet</Link>
-                   <Link href="/collections/wood" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Wood</Link>
+                   <Link href="/collections/fabric" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Fabric</Link>
+                   <Link href="/collections/leather" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Leather</Link>
+                   <Link href="/collections/metallic" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Metallic</Link>
+                   <Link href="/collections/semi-outdoor" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Semi Outdoor</Link>
+                   <Link href="/collections/signature" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Signature</Link>
+                   <Link href="/collections/stone" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Stone</Link>
+                   <Link href="/collections/velvet" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Velvet</Link>
+                   <Link href="/collections/wood" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Wood</Link>
                  </div>
                </div>
 
@@ -100,10 +100,10 @@ export default function Footer() {
                  </button>
                  {/* Links - Set to 12px */}
                  <div className={`${openSeries.essential ? 'flex' : 'hidden'} lg:flex flex-col space-y-3 pb-2 lg:pb-0`}>
-                   <Link href="/collection/solid-panel" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Solid Panel</Link>
-                   <Link href="/collection/hollow-core" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Hollow Core Panel</Link>
-                   <Link href="/collection/decor-panel" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Decor Panel</Link>
-                   <Link href="/collection/accessories" className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors leading-relaxed">
+                   <Link href="/collection/solid-panel" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Solid Panel</Link>
+                   <Link href="/collection/hollow-core" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Hollow Core Panel</Link>
+                   <Link href="/collection/decor-panel" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors">Decor Panel</Link>
+                   <Link href="/collection/accessories" prefetch={false} className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] hover:text-white transition-colors leading-relaxed">
                      Accessories<br/>Aluminium & LED
                    </Link>
                  </div>
@@ -117,10 +117,10 @@ export default function Footer() {
             <h2 className="text-s font-bold uppercase tracking-[0.2em] text-[#B08038] mb-8">Technical Support</h2>
             {/* Links - Set to 12px */}
             <ul className="space-y-4 text-[12px] text-[#c2bfb6] font-light tracking-wide">
-              <li><Link href="/support/installation" className= "text-[#c2bfb6] hover:text-[#B08038] transition-colors">Installation Guide</Link></li>
-              <li><Link href="/support/maintenance" className="text-[#c2bfb6] hover:text-[#B08038] transition-colors">Care & Maintenance</Link></li>
-              <li><Link href="/support/warranty" className="text-[#c2bfb6] hover:text-[#B08038] transition-colors">Warranty & Policy</Link></li>
-              <li><Link href="/support/studio-qa" className="text-[#c2bfb6] hover:text-[#B08038] transition-colors">Studio Q&A</Link></li>
+              <li><Link href="/support/installation" prefetch={false} className= "text-[#c2bfb6] hover:text-[#B08038] transition-colors">Installation Guide</Link></li>
+              <li><Link href="/support/maintenance" prefetch={false} className="text-[#c2bfb6] hover:text-[#B08038] transition-colors">Care & Maintenance</Link></li>
+              <li><Link href="/support/warranty" prefetch={false} className="text-[#c2bfb6] hover:text-[#B08038] transition-colors">Warranty & Policy</Link></li>
+              <li><Link href="/support/studio-qa" prefetch={false} className="text-[#c2bfb6] hover:text-[#B08038] transition-colors">Studio Q&A</Link></li>
             </ul>
           </div>
 
@@ -129,8 +129,8 @@ export default function Footer() {
             <h2 className="text-s font-bold uppercase tracking-[0.2em] text-[#B08038] mb-8">Contact Us</h2>
             {/* Links - Set to 12px */}
             <ul className="space-y-4 text-[12px] text-[#c2bfb6] font-light tracking-wide mb-6">
-              <li><Link href="/contact/showrooms" className= "text-[#c2bfb6] hover:text-[#B08038] transition-colors">Showrooms</Link></li>
-              <li><Link href="/contact/location" className="text-[#c2bfb6] hover:text-[#B08038] transition-colors">Location</Link></li>
+              <li><Link href="/contact/showrooms" prefetch={false} className= "text-[#c2bfb6] hover:text-[#B08038] transition-colors">Showrooms</Link></li>
+              <li><Link href="/contact/location" prefetch={false} className="text-[#c2bfb6] hover:text-[#B08038] transition-colors">Location</Link></li>
             </ul>
             
             <div className="flex space-x-4">

@@ -280,6 +280,7 @@ export default function SearchPage() {
                   <Link 
                     key={idx} 
                     href={href}
+                    prefetch={false}
                     className="bg-[#1c1c1e]/80 backdrop-blur-sm p-3 md:p-4 rounded-2xl border border-white/5 flex items-center gap-4 cursor-pointer hover:bg-white/10 hover:border-white/10 hover:-translate-y-1 transition-all shadow-lg"
                   >
                     {/* Thumbnail */}

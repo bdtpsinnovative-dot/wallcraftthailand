@@ -39,6 +39,7 @@ export default function VariantCarousel({ variants, productId }: VariantCarousel
             <Link 
               key={idx} 
               href={`/product/${productId}?style=${encodeURIComponent(v.pattern || v.color || v.sku)}`}
+              prefetch={false}
               className="block aspect-square w-1/3 border border-[#444] rounded-sm hover:border-[#c6a87c] hover:scale-105 transition-all overflow-hidden"
             >
                {/* ✅ แก้ไข alt ตรงนี้ */}
@@ -72,6 +73,7 @@ export default function VariantCarousel({ variants, productId }: VariantCarousel
                  <div key={idx} className="min-w-[33.333%] px-2">
                     <Link
                       href={`/product/${productId}?style=${encodeURIComponent(styleName)}`}
+                      prefetch={false}
                       className="block aspect-square w-full border border-[#444] rounded-sm hover:border-[#c6a87c] hover:scale-105 transition-all duration-300 overflow-hidden shadow-md"
                     >
                       {/* ✅ แก้ไข alt ตรงนี้ */}

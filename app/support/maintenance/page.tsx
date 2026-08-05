@@ -23,7 +23,7 @@ export default function PlaceholderPage() {
         Please check back soon.
       </p>
       
-      <Link href="/" className="border border-white/20 px-8 py-3 text-[10px] uppercase tracking-[0.3em] hover:bg-white hover:text-black transition-all">
+      <Link href="/" prefetch={false} className="border border-white/20 px-8 py-3 text-[10px] uppercase tracking-[0.3em] hover:bg-white hover:text-black transition-all">
         Return to Home
       </Link>
 

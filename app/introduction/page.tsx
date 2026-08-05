@@ -359,7 +359,7 @@ export default function Page() {
                                     </div>
                                     <p className="text-zinc-300 text-xs md:text-base font-light leading-relaxed max-w-sm mx-auto lg:mx-0 opacity-80">{series.desc}</p>
                                     <div className="pt-4">
-                                        <Link href={series.link} className="group inline-flex items-center px-6 py-3 md:px-8 md:py-4 bg-zinc-900/50 text-[#c2bfb6] font-bold border border-white/10 hover:border-[#B08038]/50 transition-all uppercase text-[10px] tracking-[0.3em]">
+                                        <Link href={series.link} prefetch={false} className="group inline-flex items-center px-6 py-3 md:px-8 md:py-4 bg-zinc-900/50 text-[#c2bfb6] font-bold border border-white/10 hover:border-[#B08038]/50 transition-all uppercase text-[10px] tracking-[0.3em]">
                                             Read More 
                                             <svg className="ml-3 transition-transform group-hover:translate-x-1" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                                         </Link>

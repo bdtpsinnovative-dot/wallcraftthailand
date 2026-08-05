@@ -210,7 +210,7 @@ export default function RegisterPage() {
           <div className="mt-8 pt-8 border-t border-white/10 text-center">
             <p className="text-[#c2bfb6] text-xs">
               Already have an account?{' '}
-              <Link href="/login" className="text-[#B08038] hover:text-white transition-colors underline-offset-4 hover:underline">
+              <Link href="/login" prefetch={false} className="text-[#B08038] hover:text-white transition-colors underline-offset-4 hover:underline">
                 Log In
               </Link>
             </p>

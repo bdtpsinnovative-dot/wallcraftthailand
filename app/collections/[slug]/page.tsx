@@ -1,10 +1,39 @@
 import React from 'react';
 import Link from 'next/link';
+import { unstable_cache } from 'next/cache';
 
 import { supabase } from '@/app/lib/supabase';
 import VariantCarousel from '@/app/components/VariantCarousel';
 
-export const dynamic = 'force-dynamic';
+// Cache catalog responses indefinitely so repeated navigation does not query Supabase every time.
+// Keep the public catalog page cached until a deployment or explicit revalidation.
+export const revalidate = false;
+
+const getCachedCollectionProducts = unstable_cache(
+  async (collectionName: string) => {
+    if (!supabase) {
+      return { products: null, error: 'Supabase is not configured.' };
+    }
+
+    const { data, error } = await supabase
+      .from('products')
+      .select(`
+        *,
+        product_variants (
+          id, sku, color, film, pattern, variant_image, description
+        )
+      `)
+      .ilike('collection', `%${collectionName}%`)
+      .order('id', { ascending: true });
+
+    return {
+      products: data,
+      error: error?.message ?? null,
+    };
+  },
+  ['public-collection-products-v1'],
+  { revalidate: false }
+);
 
 const SLUG_TO_COLLECTION: Record<string, string> = {
   "solid-panel": "Solid Panel", 
@@ -22,16 +51,7 @@ export default async function CollectionDynamicPage({ params }: PageProps) {
   const { slug } = await params;
   const searchName = SLUG_TO_COLLECTION[slug] || slug.replace(/-/g, ' '); 
 
-  const { data: products, error } = await supabase
-    .from('products')
-    .select(`
-      *,
-      product_variants (
-        id, sku, color, film, pattern, variant_image, description
-      )
-    `)
-    .ilike('collection', `%${searchName}%`)
-    .order('id', { ascending: true });
+  const { products, error } = await getCachedCollectionProducts(searchName);
 
   if (error || !products || products.length === 0) {
     return (
@@ -44,7 +64,7 @@ export default async function CollectionDynamicPage({ params }: PageProps) {
              คอลเลกชัน <span className="text-white font-medium">{searchName}</span> กำลังอยู่ในช่วงอัปเดตสินค้าครับ 
              <br />โปรดติดตามเร็วๆ นี้
           </p>
-          <Link href="/" className="px-8 py-3 border border-[#c6a87c] text-[#c6a87c] hover:bg-[#c6a87c] hover:text-black transition-all duration-300 text-sm tracking-[0.2em] uppercase rounded-sm inline-block">
+          <Link href="/" prefetch={false} className="px-8 py-3 border border-[#c6a87c] text-[#c6a87c] hover:bg-[#c6a87c] hover:text-black transition-all duration-300 text-sm tracking-[0.2em] uppercase rounded-sm inline-block">
              กลับสู่หน้าแรก
           </Link>
         </div>
@@ -70,7 +90,7 @@ export default async function CollectionDynamicPage({ params }: PageProps) {
             return (
                 <div key={product.id} className="group bg-[#1e1e1e] flex flex-col md:flex-row overflow-hidden hover:border hover:border-[#c6a87c] transition-all duration-300 shadow-2xl">
                     
-                    <Link href={`/product/${product.id}`} className="md:flex-1 min-h-[400px] md:min-h-[450px] bg-black relative overflow-hidden">
+                    <Link href={`/product/${product.id}`} prefetch={false} className="md:flex-1 min-h-[400px] md:min-h-[450px] bg-black relative overflow-hidden">
                         {/* ✅ แก้ไข alt ตรงนี้ให้บอกชื่อรุ่นและคอลเลกชันสินค้าผนังตกแต่ง */}
                         <img src={defaultImg} alt={`ผนังตกแต่งบ้าน ระแนงไม้พรีเมียม รุ่น ${product.name} คอลเลกชัน ${searchName} แบรนด์ Wallcraft`} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                         
@@ -100,7 +120,7 @@ export default async function CollectionDynamicPage({ params }: PageProps) {
                             </div>
                          </div>
 
-                         <Link href={`/product/${product.id}`} className="mt-6 text-[#c6a87c] text-sm font-bold flex items-center gap-2 hover:translate-x-2 transition-transform">
+                         <Link href={`/product/${product.id}`} prefetch={false} className="mt-6 text-[#c6a87c] text-sm font-bold flex items-center gap-2 hover:translate-x-2 transition-transform">
                              VIEW DETAILS <span>→</span>
                          </Link>
                     </div>

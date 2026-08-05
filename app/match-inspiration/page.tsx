@@ -33,7 +33,7 @@ export default function MatchInspirationPage() {
 
       <div className="mt-20 p-12 border border-white/5 bg-zinc-900/20 text-center rounded-sm">
         <p className="text-zinc-400 italic mb-4">"Interior design is a business of trust."</p>
-        <Link href="/" className="text-[#c6a87c] text-[10px] tracking-[0.3em] uppercase hover:underline">
+        <Link href="/" prefetch={false} className="text-[#c6a87c] text-[10px] tracking-[0.3em] uppercase hover:underline">
           Back to Home
         </Link>
       </div>

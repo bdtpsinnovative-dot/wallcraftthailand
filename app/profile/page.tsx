@@ -321,7 +321,7 @@ export default function ProfilePage() {
             <div className="bg-white/5 border border-white/10 rounded-sm p-12 text-center flex flex-col items-center mt-4">
               <EmptyIcon className="text-4xl text-zinc-600 mb-4" />
               <h3 className="text-white font-medium mb-2">{emptyMessage}</h3>
-              <Link href="/introduction" className="bg-[#B08038] text-white px-8 py-3 text-[10px] uppercase tracking-widest rounded-sm hover:bg-[#8f662a]">Explore Collections</Link>
+              <Link href="/introduction" prefetch={false} className="bg-[#B08038] text-white px-8 py-3 text-[10px] uppercase tracking-widest rounded-sm hover:bg-[#8f662a]">Explore Collections</Link>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-6">

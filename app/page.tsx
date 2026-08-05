@@ -116,10 +116,10 @@ export default function HomePage() {
 
             {/* ✅ 3. เพิ่ม aria-label ใน Link ให้ Google อ่านออก */}
             <div className="flex flex-wrap gap-4 mt-12">
-                <Link href="/introduction" aria-label="เรียนรู้เพิ่มเติมเกี่ยวกับผนังตกแต่งบ้าน Wallcraft" className="group flex items-center px-8 py-4 bg-zinc-800 text-[#c2bfb6] font-bold rounded-full hover:bg-zinc-700 transition-all uppercase text-[11px] tracking-widest">
+                <Link href="/introduction" prefetch={false} aria-label="เรียนรู้เพิ่มเติมเกี่ยวกับผนังตกแต่งบ้าน Wallcraft" className="group flex items-center px-8 py-4 bg-zinc-800 text-[#c2bfb6] font-bold rounded-full hover:bg-zinc-700 transition-all uppercase text-[11px] tracking-widest">
                     Learn More <FaArrowRight className="ml-2 transition-transform group-hover:translate-x-1 text-[#c2bfb6]" />
                 </Link>
-                <Link href="/series" aria-label="ดูคอลเลกชันสินค้าผนังทั้งหมด" className="group flex items-center px-8 py-4 bg-transparent border border-zinc-600 text-[#c2bfb6] font-bold rounded-full hover:bg-white/5 transition-all uppercase text-[11px] tracking-widest">
+                <Link href="/series" prefetch={false} aria-label="ดูคอลเลกชันสินค้าผนังทั้งหมด" className="group flex items-center px-8 py-4 bg-transparent border border-zinc-600 text-[#c2bfb6] font-bold rounded-full hover:bg-white/5 transition-all uppercase text-[11px] tracking-widest">
                     <FaLayerGroup className="mr-2 text-[10px]" /> View Series
                 </Link>
             </div>

@@ -104,7 +104,7 @@ export default function LoginPage() {
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <label className="text-[10px] uppercase tracking-[0.2em] text-[#c2bfb6] font-bold block">Password</label>
-                <Link href="#" className="text-[10px] text-[#B08038] hover:text-white transition-colors">Forgot Password?</Link>
+                <Link href="#" prefetch={false} className="text-[10px] text-[#B08038] hover:text-white transition-colors">Forgot Password?</Link>
               </div>
               <input 
                 type="password" 
@@ -139,7 +139,7 @@ export default function LoginPage() {
           <div className="mt-8 pt-8 border-t border-white/10 text-center">
             <p className="text-zinc-500 text-xs">
               Don't have an account?{' '}
-              <Link href="/register" className="text-[#B08038] hover:text-white transition-colors underline-offset-4 hover:underline">
+              <Link href="/register" prefetch={false} className="text-[#B08038] hover:text-white transition-colors underline-offset-4 hover:underline">
                 Create one now
               </Link>
             </p>
