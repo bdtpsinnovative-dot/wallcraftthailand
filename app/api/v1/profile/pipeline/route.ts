@@ -71,7 +71,7 @@ export async function GET(request: Request) {
         const lng = order.audit_log?.location?.lng;
 
         if (!compMap.has(cId)) {
-          compMap.set(cId, { company: order.companies, projects: [], count: 0 });
+          compMap.set(cId, { company: order.companies, projects: [], count: 0, user_ids: new Set() });
         }
         const compData = compMap.get(cId);
         
@@ -82,6 +82,7 @@ export async function GET(request: Request) {
         
         // Increment count for every order (represents a visit)
         compData.count += 1;
+        if (order.user_id) compData.user_ids.add(order.user_id);
         
         order.order_items?.forEach((item: any) => {
           item.order_item_projects?.forEach((proj: any) => {
@@ -105,7 +106,10 @@ export async function GET(request: Request) {
       });
     }
 
-    const pipeline = Array.from(compMap.values()).sort((a, b) => b.count - a.count);
+    const pipeline = Array.from(compMap.values()).map(p => ({
+      ...p,
+      user_ids: Array.from(p.user_ids)
+    })).sort((a, b) => b.count - a.count);
     return NextResponse.json({ pipeline });
 
   } catch (err: any) {
