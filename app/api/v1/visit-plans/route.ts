@@ -152,10 +152,22 @@ export async function POST(request: Request) {
           : [];
 
         if (fcmTokens.length > 0) {
+          let companyName = 'ไม่ระบุบริษัท';
+          if (company_id) {
+            const { data: comp } = await supabase.from('companies').select('name').eq('id', company_id).single();
+            if (comp) companyName = comp.name;
+          }
+
+          let projectName = project_concept || 'ไม่มีชื่อโครงการ';
+          if (project_id) {
+            const { data: proj } = await supabase.from('projects').select('project_name').eq('id', project_id).single();
+            if (proj) projectName = proj.project_name;
+          }
+
           const message = {
             notification: { 
-              title: 'คุณได้รับมอบหมายแผนงานใหม่', 
-              body: `แอดมินได้มอบหมายแผนการเข้าพบลูกค้าให้คุณ` 
+              title: `Visit : ${companyName}`, 
+              body: `ได้รับโครงการ : ${projectName}\nเซลส์ : ${requesterProfile.full_name || 'แอดมิน'}` 
             },
             data: { type: 'new_visit_plan' },
             tokens: fcmTokens as string[],
