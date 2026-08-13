@@ -164,15 +164,10 @@ export async function POST(request: Request) {
             if (proj) projectName = proj.project_name;
           }
 
-          let notifBody = `เซลส์ : ${requesterProfile.full_name || 'แอดมิน'}`;
-          if (projectName && projectName.trim() !== '') {
-            notifBody = `ได้รับโครงการ : ${projectName}\n${notifBody}`;
-          }
-
           const message = {
             notification: { 
-              title: `Visit : ${companyName}`, 
-              body: notifBody 
+              title: 'คุณได้รับมอบหมายแผนงานใหม่', 
+              body: `${requesterProfile.full_name || 'แอดมิน'} ได้มอบหมายแผนการเข้าพบลูกค้า ${companyName} ให้คุณ` 
             },
             data: { type: 'new_visit_plan' },
             tokens: fcmTokens as string[],
