@@ -246,7 +246,7 @@ export async function POST(request: Request) {
 
       if (allUsers && allUsers.length > 0) {
         const recipients = allUsers.filter(member => {
-          if (member.id === currentUserId) return true; // 🌟 ให้บันทึกการแจ้งเตือนสำหรับผู้สร้างออเดอร์ด้วย
+          if (member.id === currentUserId) return false; // ไม่แจ้งเตือนคนสร้างออเดอร์เอง
           if (member.noti_level === 'none') return false; 
           if (member.noti_level === 'all') return true;  
           if (member.noti_level === 'team' && member.team_id === team_id) return true; 
@@ -257,9 +257,8 @@ export async function POST(request: Request) {
           const customerDisplay = companyName || customer_name || 'ลูกค้าทั่วไป';
 
           const notificationPayloads = recipients.map(member => {
-            const isCreator = member.id === currentUserId;
-            const title = isCreator ? 'บันทึกออเดอร์สำเร็จ!' : 'ออเดอร์ใหม่เข้าทีม!';
-            const bodyMsg = isCreator ? `คุณเพิ่มรายการจาก ${customerDisplay}` : `${creatorName} เพิ่มรายการจาก ${customerDisplay}`;
+            const title = 'ออเดอร์ใหม่เข้าทีม!';
+            const bodyMsg = `${creatorName} เพิ่มรายการจาก ${customerDisplay}`;
 
             return {
               recipient_id: member.id,
@@ -276,6 +275,9 @@ export async function POST(request: Request) {
           for (const target of recipients) {
             const tokens = extractFcmTokens(target.fcm_tokens);
             if (tokens.length === 0) continue;
+
+            const title = 'ออเดอร์ใหม่เข้าทีม!';
+            const bodyMsg = `${creatorName} เพิ่มรายการจาก ${customerDisplay}`;
 
             try {
               const messagePayload: admin.messaging.MulticastMessage = {
