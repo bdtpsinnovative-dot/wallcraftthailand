@@ -19,8 +19,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Invalid or Expired Token' }, { status: 401 });
     }
 
-    // ดึง Orders ของ User เพื่อสร้าง Pipeline
-    const { data: orders, error } = await supabase
+    // Check if user is admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+    
+    const isAdmin = profile?.role === 'admin';
+
+    // Fetch Orders for Pipeline
+    let query = supabase
       .from('orders')
       .select(`
         company_id,
@@ -31,8 +40,13 @@ export async function GET(request: Request) {
             id, project_name, project_type_id
           )
         )
-      `)
-      .eq('user_id', user.id);
+      `);
+
+    if (!isAdmin) {
+      query = query.eq('user_id', user.id);
+    }
+
+    const { data: orders, error } = await query;
 
     if (error) throw error;
 
@@ -55,13 +69,17 @@ export async function GET(request: Request) {
           item.order_item_projects?.forEach((proj: any) => {
             if (proj.project_name) {
               // Avoid duplicate projects by name
-              if (!compData.projects.find((p: any) => p.project_name === proj.project_name)) {
+              const existingProj = compData.projects.find((p: any) => p.project_name === proj.project_name);
+              if (!existingProj) {
                 compData.projects.push({
                   id: proj.id,
                   project_name: proj.project_name,
                   project_type_id: proj.project_type_id,
-                  product_category_id: item.product_category_id
+                  product_category_id: item.product_category_id,
+                  is_mine: order.user_id === user.id
                 });
+              } else if (order.user_id === user.id) {
+                existingProj.is_mine = true;
               }
             }
           });
