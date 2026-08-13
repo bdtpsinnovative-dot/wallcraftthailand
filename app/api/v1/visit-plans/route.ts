@@ -158,16 +158,21 @@ export async function POST(request: Request) {
             if (comp) companyName = comp.name;
           }
 
-          let projectName = project_concept || 'ไม่มีชื่อโครงการ';
+          let projectName = project_concept;
           if (project_id) {
             const { data: proj } = await supabase.from('projects').select('project_name').eq('id', project_id).single();
             if (proj) projectName = proj.project_name;
           }
 
+          let notifBody = `เซลส์ : ${requesterProfile.full_name || 'แอดมิน'}`;
+          if (projectName && projectName.trim() !== '') {
+            notifBody = `ได้รับโครงการ : ${projectName}\n${notifBody}`;
+          }
+
           const message = {
             notification: { 
               title: `Visit : ${companyName}`, 
-              body: `ได้รับโครงการ : ${projectName}\nเซลส์ : ${requesterProfile.full_name || 'แอดมิน'}` 
+              body: notifBody 
             },
             data: { type: 'new_visit_plan' },
             tokens: fcmTokens as string[],

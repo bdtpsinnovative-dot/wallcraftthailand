@@ -256,17 +256,22 @@ export async function POST(request: Request) {
         if (recipients.length > 0) {
           const customerDisplay = companyName || customer_name || 'ลูกค้าทั่วไป';
 
-          let firstProjectName = 'ไม่มีการระบุโครงการ';
+          let firstProjectName = null;
           if (items && Array.isArray(items) && items.length > 0) {
             const firstItem = items[0];
             if (firstItem.project_usage && Array.isArray(firstItem.project_usage) && firstItem.project_usage.length > 0) {
               const firstUsage = firstItem.project_usage[0];
-              firstProjectName = projectMap.get(firstUsage.project_id) || 'โครงการใหม่ / อื่นๆ';
+              if (firstUsage.project_id) {
+                firstProjectName = projectMap.get(firstUsage.project_id);
+              }
             }
           }
 
           const notifTitle = `Visit : ${customerDisplay}`;
-          const notifBody = `ได้รับโครงการ : ${firstProjectName}\nเซลส์ : ${creatorName}`;
+          let notifBody = `เซลส์ : ${creatorName}`;
+          if (firstProjectName && firstProjectName.trim() !== '') {
+            notifBody = `ได้รับโครงการ : ${firstProjectName}\n${notifBody}`;
+          }
 
           const notificationPayloads = recipients.map(member => {
             return {
