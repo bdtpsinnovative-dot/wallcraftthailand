@@ -256,15 +256,24 @@ export async function POST(request: Request) {
         if (recipients.length > 0) {
           const customerDisplay = companyName || customer_name || 'ลูกค้าทั่วไป';
 
-          const notificationPayloads = recipients.map(member => {
-            const title = 'ออเดอร์ใหม่เข้าทีม!';
-            const bodyMsg = `${creatorName} เพิ่มรายการจาก ${customerDisplay}`;
+          let firstProjectName = 'ไม่มีการระบุโครงการ';
+          if (items && Array.isArray(items) && items.length > 0) {
+            const firstItem = items[0];
+            if (firstItem.project_usage && Array.isArray(firstItem.project_usage) && firstItem.project_usage.length > 0) {
+              const firstUsage = firstItem.project_usage[0];
+              firstProjectName = projectMap.get(firstUsage.project_id) || 'โครงการใหม่ / อื่นๆ';
+            }
+          }
 
+          const notifTitle = `Visit : ${customerDisplay}`;
+          const notifBody = `ได้รับโครงการ : ${firstProjectName}\nเซลส์ : ${creatorName}`;
+
+          const notificationPayloads = recipients.map(member => {
             return {
               recipient_id: member.id,
               creator_id: currentUserId,
-              title: title,
-              body: bodyMsg,
+              title: notifTitle,
+              body: notifBody,
               order_id: order.id
             };
           });
@@ -276,15 +285,12 @@ export async function POST(request: Request) {
             const tokens = extractFcmTokens(target.fcm_tokens);
             if (tokens.length === 0) continue;
 
-            const title = 'ออเดอร์ใหม่เข้าทีม!';
-            const bodyMsg = `${creatorName} เพิ่มรายการจาก ${customerDisplay}`;
-
             try {
               const messagePayload: admin.messaging.MulticastMessage = {
                 tokens,
                 notification: {
-                  title: title,
-                  body: bodyMsg,
+                  title: notifTitle,
+                  body: notifBody,
                 },
                 data: {
                   orderId: order.id.toString(),
