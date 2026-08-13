@@ -66,7 +66,14 @@ export async function GET(request: Request) {
     // Get YYYY-MM-DD in Thailand time
     const todayDateString = thailandTime.toISOString().split('T')[0];
 
-    console.log(`Cron running at ${now.toISOString()}. Today in TH is ${todayDateString}`);
+    // Calculate start of current week (Monday) in Thailand time
+    const dayOfWeek = thailandTime.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const currentWeekStart = new Date(thailandTime.getTime());
+    currentWeekStart.setDate(thailandTime.getDate() - diffToMonday);
+    const currentWeekStartString = currentWeekStart.toISOString().split('T')[0];
+
+    console.log(`Cron running at ${now.toISOString()}. Today in TH is ${todayDateString}. Week start is ${currentWeekStartString}`);
 
     // ==============================================================
     // 1. ค้นหาและเปลี่ยนสถานะงานที่เลยกำหนด (Missed) 
@@ -74,7 +81,7 @@ export async function GET(request: Request) {
     const { data: overduePlans, error: overdueError } = await supabase
       .from('visit_plans')
       .update({ status: 'cancelled' })
-      .lt('planned_date', todayDateString)
+      .lt('planned_date', currentWeekStartString)
       .eq('status', 'pending')
       .select('id, user_id');
 
