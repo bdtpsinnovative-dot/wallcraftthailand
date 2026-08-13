@@ -33,6 +33,7 @@ export async function GET(request: Request) {
       .from('orders')
       .select(`
         company_id,
+        user_id,
         companies (id, name, customer_type_id),
         order_items (
           product_category_id,
