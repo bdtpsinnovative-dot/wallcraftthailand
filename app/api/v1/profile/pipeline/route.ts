@@ -67,10 +67,18 @@ export async function GET(request: Request) {
         if (!order.companies || !order.company_id) return;
         const cId = order.company_id;
         
+        const lat = order.audit_log?.location?.lat;
+        const lng = order.audit_log?.location?.lng;
+
         if (!compMap.has(cId)) {
           compMap.set(cId, { company: order.companies, projects: [], count: 0 });
         }
         const compData = compMap.get(cId);
+        
+        if (lat && lng) {
+          compData.company.lat = lat;
+          compData.company.lng = lng;
+        }
         
         // Increment count for every order (represents a visit)
         compData.count += 1;
