@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { messaging } from '../../../lib/firebase-admin';
 
 export async function GET(request: Request) {
   try {
@@ -129,6 +130,45 @@ export async function POST(request: Request) {
       .single();
 
     if (error) throw error;
+
+    // Send notification if admin assigns to someone else
+    if (isAdmin && targetUserId !== user.id) {
+      try {
+        const { data: targetProfile } = await supabase
+          .from('profiles')
+          .select('fcm_tokens, full_name')
+          .eq('id', targetUserId)
+          .single();
+
+        const rawTokens = targetProfile?.fcm_tokens;
+        const fcmTokens = Array.isArray(rawTokens) 
+          ? rawTokens.map((entry: any) => {
+              if (typeof entry === 'string') return entry;
+              if (entry && typeof entry === 'object' && 'token' in entry) {
+                return typeof entry.token === 'string' ? entry.token : null;
+              }
+              return null;
+            }).filter(Boolean)
+          : [];
+
+        if (fcmTokens.length > 0) {
+          const message = {
+            notification: { 
+              title: 'คุณได้รับมอบหมายแผนงานใหม่', 
+              body: `แอดมินได้มอบหมายแผนการเข้าพบลูกค้าให้คุณ` 
+            },
+            data: { type: 'new_visit_plan' },
+            tokens: fcmTokens as string[],
+            android: { priority: 'high' as const },
+            apns: { payload: { aps: { sound: 'default', badge: 1 } } },
+          };
+          await messaging.sendEachForMulticast(message);
+        }
+      } catch (notifyErr) {
+        console.error("Failed to send assignment notification:", notifyErr);
+      }
+    }
+
     return NextResponse.json(data);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
