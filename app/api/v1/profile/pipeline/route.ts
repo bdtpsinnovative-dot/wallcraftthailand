@@ -47,14 +47,23 @@ export async function GET(request: Request) {
       query = query.eq('user_id', user.id);
     }
 
-    const { data: orders, error } = await query;
-
-    if (error) throw error;
+    let allOrders: any[] = [];
+    let start = 0;
+    const limit = 1000;
+    
+    while (true) {
+      const { data: chunk, error } = await query.range(start, start + limit - 1);
+      if (error) throw error;
+      if (!chunk || chunk.length === 0) break;
+      allOrders = allOrders.concat(chunk);
+      if (chunk.length < limit) break;
+      start += limit;
+    }
 
     const compMap = new Map();
 
-    if (orders) {
-      orders.forEach((order: any) => {
+    if (allOrders.length > 0) {
+      allOrders.forEach((order: any) => {
         if (!order.companies || !order.company_id) return;
         const cId = order.company_id;
         
