@@ -18,30 +18,25 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Invalid or Expired Token' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json({ error: 'Missing id parameter' }, { status: 400 });
-    }
-
+    // Check if requester is admin
     const { data: requesterProfile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single();
 
-    const isAdmin = requesterProfile?.role === 'admin';
-
-    let query = supabase.from('visit_plans').delete().eq('id', id);
-    if (!isAdmin) {
-      query = query.eq('user_id', user.id);
+    if (requesterProfile?.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden. Admin access required.' }, { status: 403 });
     }
 
-    const { error } = await query;
+    const { data: users, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .order('full_name', { ascending: true });
 
     if (error) throw error;
-    return NextResponse.json({ success: true });
+
+    return NextResponse.json({ users });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
