@@ -173,10 +173,10 @@ export async function GET(request: Request) {
         bodyLines.push(`วันนี้คุณมีคิวเข้าพบลูกค้า ${todayCount} รายการ เตรียมตัวให้พร้อม!`);
       }
       if (overdueThisWeekCount > 0) {
-        bodyLines.push(`⚠️ คำเตือน: มีงานค้างของสัปดาห์นี้ ${overdueThisWeekCount} รายการ ถ้าเปลี่ยนสัปดาห์ใหม่แล้วยังไม่เข้าพบ จะถือว่าไม่สำเร็จ!`);
+        bodyLines.push(`⚠️ คำเตือน: มีงานค้างสัปดาห์นี้ ${overdueThisWeekCount} รายการ ถ้าเลยสัปดาห์จะถือว่าไม่สำเร็จ!`);
       }
       
-      let body = bodyLines.join('\n\n');
+      let body = bodyLines.join(' ');
 
       if (!body) continue;
 
@@ -244,6 +244,7 @@ export async function GET(request: Request) {
       success: true, 
       missed_updated: overduePlans?.length || 0,
       today_plans: todayPlans?.length || 0,
+      overdue_this_week: overdueThisWeekPlans?.length || 0,
       notifications_sent: successCount,
       notifications_failed: failureCount,
       fcm_errors: fcmErrors
