@@ -227,10 +227,6 @@ export async function GET(request: Request) {
             is_global: false
           });
           includedIds.add(c.company.id);
-        } else if (isAdmin) {
-          c.is_admin_all = true;
-          pipeline.push(c);
-          includedIds.add(c.company.id);
         }
       }
     }
