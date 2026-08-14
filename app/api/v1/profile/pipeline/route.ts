@@ -69,19 +69,32 @@ export async function GET(request: Request) {
     }
 
     // Helper to fetch orders with pagination
-    const fetchOrders = async (filterFn: (q: any) => any, isLightweight = false) => {
+    const fetchOrders = async (filterFn: (q: any) => any) => {
       let allOrders: any[] = [];
       let start = 0;
       const limit = 1000;
-      const selectFields = isLightweight
-        ? `company_id, user_id, team_id, audit_log, companies (id, name, customer_type_id)`
-        : `company_id, user_id, team_id, audit_log, companies (id, name, customer_type_id), order_items (product_category_id, order_item_projects (id, project_name, project_type_id))`;
+      const selectFields = `
+        company_id,
+        user_id,
+        team_id,
+        audit_log,
+        companies (id, name, customer_type_id),
+        order_items (
+          product_category_id,
+          order_item_projects (
+            id, project_name, project_type_id
+          )
+        )
+      `;
 
       while (true) {
         let baseQuery = supabase.from('orders').select(selectFields);
         baseQuery = filterFn(baseQuery);
         const { data: chunk, error } = await baseQuery.range(start, start + limit - 1);
-        if (error) throw error;
+        if (error) {
+          console.error("❌ Supabase orders query error:", error);
+          throw error;
+        }
         if (!chunk || chunk.length === 0) break;
         allOrders = allOrders.concat(chunk);
         if (chunk.length < limit) break;
@@ -99,7 +112,7 @@ export async function GET(request: Request) {
     const [myOrders, teamOrders, globalOrders] = await Promise.all([
       fetchOrders((q) => q.eq('user_id', effectiveUserId)),
       effectiveTeamId ? fetchOrders((q) => q.eq('team_id', effectiveTeamId).neq('user_id', effectiveUserId)) : Promise.resolve([]),
-      fetchOrders(globalFilter, true), // lightweight for global
+      fetchOrders(globalFilter),
     ]);
 
     const compMap = new Map();
@@ -225,6 +238,7 @@ export async function GET(request: Request) {
     return NextResponse.json(responsePayload);
 
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("❌ [Pipeline Error]:", err);
+    return NextResponse.json({ error: err.message || String(err) }, { status: 500 });
   }
 }
