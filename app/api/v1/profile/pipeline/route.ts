@@ -1,3 +1,6 @@
+import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
+
 // ⚡ Server-Side Cache for Pipeline (5 mins TTL)
 const pipelineCache = new Map<string, { data: any, timestamp: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
