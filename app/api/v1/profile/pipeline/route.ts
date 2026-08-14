@@ -60,29 +60,22 @@ export async function GET(request: Request) {
       return allOrders;
     };
 
-    let myOrders: any[] = [];
-    let teamOrders: any[] = [];
-    let globalOrders: any[] = [];
+    // Step 1: Always fetch my orders first (to count personal orders)
+    myOrders = await fetchOrders((q) => q.eq('user_id', user.id));
+    const myOrderCount = myOrders.length;
 
-    if (isAdmin) {
-      // Admins get everything
-      myOrders = await fetchOrders((q) => q);
-    } else {
-      // Step 1: Fetch my orders
-      myOrders = await fetchOrders((q) => q.eq('user_id', user.id));
-      
-      // Count unique companies in my orders
-      const myCompanyIds = new Set(myOrders.map(o => o.company_id).filter(Boolean));
-      
-      // Step 2: Supplement with team orders if < 100 unique companies
-      if (myCompanyIds.size < 100 && profile?.team_id) {
+    // Determine how many team / global orders we need based on myOrderCount
+    let needTeamOrGlobal = false;
+    if (myOrderCount < 300 || isAdmin) {
+      needTeamOrGlobal = true;
+    }
+
+    if (needTeamOrGlobal) {
+      if (profile?.team_id) {
         teamOrders = await fetchOrders((q) => q.eq('team_id', profile.team_id).neq('user_id', user.id));
       }
-      
-      const totalCompanyIds = new Set([...myCompanyIds, ...teamOrders.map(o => o.company_id).filter(Boolean)]);
-      
-      // Step 3: Supplement with global orders if still < 100 unique companies
-      if (totalCompanyIds.size < 100) {
+      // If admin or very few orders (< 50), also fetch global orders
+      if (isAdmin || (myOrderCount < 50)) {
         let globalFilter = (q: any) => q.neq('user_id', user.id);
         if (profile?.team_id) {
           globalFilter = (q: any) => q.neq('user_id', user.id).neq('team_id', profile.team_id);
@@ -156,27 +149,79 @@ export async function GET(request: Request) {
       user_ids: Array.from(p.user_ids)
     }));
 
-    // Split and sort by frequency
+    // Split and sort by frequency (visit count)
     const mineList = allCompanies.filter(c => c.is_mine).sort((a, b) => b.count - a.count);
     const teamList = allCompanies.filter(c => !c.is_mine && c.is_team).sort((a, b) => b.count - a.count);
     const globalList = allCompanies.filter(c => !c.is_mine && !c.is_team && c.is_global).sort((a, b) => b.count - a.count);
 
-    const pipeline: any[] = [];
-    pipeline.push(...mineList);
+    const TOTAL_SLOTS = 50;
+    let targetPersonalRatio = 1.0;
+    let targetTeamRatio = 0.0;
 
-    if (pipeline.length < 100) {
-      for (const c of teamList) {
-        if (pipeline.length >= 100) break;
+    if (myOrderCount < 50) {
+      targetPersonalRatio = 0.5;
+      targetTeamRatio = 0.5;
+    } else if (myOrderCount < 100) {
+      targetPersonalRatio = 0.8; // 80% Personal, 20% Team
+      targetTeamRatio = 0.2;
+    } else if (myOrderCount < 300) {
+      targetPersonalRatio = 0.9; // 90% Personal, 10% Team
+      targetTeamRatio = 0.1;
+    } else {
+      targetPersonalRatio = 1.0; // 100% Personal, 0% Team
+      targetTeamRatio = 0.0;
+    }
+
+    const maxPersonal = Math.round(TOTAL_SLOTS * targetPersonalRatio);
+    const maxTeam = TOTAL_SLOTS - maxPersonal;
+
+    const pipeline: any[] = [];
+
+    // 1. Add Personal companies (up to maxPersonal)
+    const personalToAdd = mineList.slice(0, maxPersonal);
+    pipeline.push(...personalToAdd);
+
+    // 2. Add Team companies (up to maxTeam)
+    if (maxTeam > 0) {
+      const teamToAdd = teamList.slice(0, maxTeam);
+      for (const c of teamToAdd) {
         c.is_team = true;
         pipeline.push(c);
       }
     }
 
-    if (pipeline.length < 100) {
-      for (const c of globalList) {
-        if (pipeline.length >= 100) break;
-        c.is_global = true;
+    // 3. If still below TOTAL_SLOTS and orderCount < 300, fill remaining gap
+    if (myOrderCount < 300 && pipeline.length < TOTAL_SLOTS) {
+      const remainingPersonal = mineList.slice(maxPersonal);
+      for (const c of remainingPersonal) {
+        if (pipeline.length >= TOTAL_SLOTS) break;
         pipeline.push(c);
+      }
+
+      const remainingTeam = teamList.slice(maxTeam);
+      for (const c of remainingTeam) {
+        if (pipeline.length >= TOTAL_SLOTS) break;
+        c.is_team = true;
+        pipeline.push(c);
+      }
+
+      if (myOrderCount < 50) {
+        for (const c of globalList) {
+          if (pipeline.length >= TOTAL_SLOTS) break;
+          c.is_global = true;
+          pipeline.push(c);
+        }
+      }
+    }
+
+    // For Admin: If there are leftover companies, append them for Add Visit Plan assignment
+    if (isAdmin) {
+      const includedIds = new Set(pipeline.map(p => p.company.id));
+      for (const c of allCompanies) {
+        if (!includedIds.has(c.company.id)) {
+          c.is_admin_all = true;
+          pipeline.push(c);
+        }
       }
     }
 
