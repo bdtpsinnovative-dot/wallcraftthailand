@@ -156,78 +156,41 @@ export async function GET(request: Request) {
     const globalList = allCompanies.filter(c => !c.is_mine && !c.is_team && c.is_global).sort((a, b) => b.count - a.count);
 
     const TOTAL_SLOTS = 50;
-    let targetPersonalRatio = 1.0;
-    let targetTeamRatio = 0.0;
-
-    if (myOrderCount < 50) {
-      targetPersonalRatio = 0.5;
-      targetTeamRatio = 0.5;
-    } else if (myOrderCount < 100) {
-      targetPersonalRatio = 0.8; // 80% Personal, 20% Team
-      targetTeamRatio = 0.2;
-    } else if (myOrderCount < 300) {
-      targetPersonalRatio = 0.9; // 90% Personal, 10% Team
-      targetTeamRatio = 0.1;
-    } else {
-      targetPersonalRatio = 1.0; // 100% Personal, 0% Team
-      targetTeamRatio = 0.0;
-    }
-
-    const maxPersonal = Math.round(TOTAL_SLOTS * targetPersonalRatio);
-    const maxTeam = TOTAL_SLOTS - maxPersonal;
-
     const pipeline: any[] = [];
 
-    // 1. Add Personal companies (up to maxPersonal)
-    const personalToAdd = mineList.slice(0, maxPersonal);
-    pipeline.push(...personalToAdd);
-
-    // 2. Add Team companies (up to maxTeam)
-    if (maxTeam > 0) {
-      const teamToAdd = teamList.slice(0, maxTeam);
+    if (myOrderCount >= 300) {
+      // 100% Personal, 0% Team
+      pipeline.push(...mineList.slice(0, 50));
+    } else if (myOrderCount >= 100) {
+      // 90% Personal, 10% Team (Strictly max 5 team companies at the bottom)
+      const personalToAdd = mineList.slice(0, 45);
+      const teamToAdd = teamList.slice(0, 5);
+      pipeline.push(...personalToAdd);
       for (const c of teamToAdd) {
         c.is_team = true;
         pipeline.push(c);
       }
-    }
-
-    // 3. If still below TOTAL_SLOTS and orderCount < 300, fill remaining gap
-    if (myOrderCount < 300 && pipeline.length < TOTAL_SLOTS) {
-      const remainingPersonal = mineList.slice(maxPersonal);
-      for (const c of remainingPersonal) {
-        if (pipeline.length >= TOTAL_SLOTS) break;
+    } else if (myOrderCount >= 50) {
+      // 80% Personal, 20% Team (Strictly max 10 team companies at the bottom)
+      const personalToAdd = mineList.slice(0, 40);
+      const teamToAdd = teamList.slice(0, 10);
+      pipeline.push(...personalToAdd);
+      for (const c of teamToAdd) {
+        c.is_team = true;
         pipeline.push(c);
       }
-
-      const remainingTeam = teamList.slice(maxTeam);
-      for (const c of remainingTeam) {
+    } else {
+      // < 50 orders: New employee, fill up to 50 slots
+      pipeline.push(...mineList);
+      for (const c of teamList) {
         if (pipeline.length >= TOTAL_SLOTS) break;
         c.is_team = true;
         pipeline.push(c);
       }
-
-      if (myOrderCount < 50) {
-        for (const c of globalList) {
-          if (pipeline.length >= TOTAL_SLOTS) break;
-          c.is_global = true;
-          pipeline.push(c);
-        }
-      }
-    }
-
-    // 4. Append all other companies with GPS coordinates (so mobile app can detect proximity <= 750m)
-    const includedIds = new Set(pipeline.map(p => p.company.id));
-    for (const c of allCompanies) {
-      if (!includedIds.has(c.company.id)) {
-        if (c.company.lat && c.company.lng) {
-          pipeline.push({
-            ...c,
-            is_mine: false,
-            is_team: false,
-            is_global: false
-          });
-          includedIds.add(c.company.id);
-        }
+      for (const c of globalList) {
+        if (pipeline.length >= TOTAL_SLOTS) break;
+        c.is_global = true;
+        pipeline.push(c);
       }
     }
 
