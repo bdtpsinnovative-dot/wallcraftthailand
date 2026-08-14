@@ -28,6 +28,25 @@ export async function GET(request: Request) {
     
     const isAdmin = profile?.role === 'admin';
 
+    // 🎯 Support optional target user_id (e.g. for Admin assigning visit plans)
+    const { searchParams } = new URL(request.url);
+    const requestedUserId = searchParams.get('user_id');
+    
+    let effectiveUserId = user.id;
+    let effectiveTeamId = profile?.team_id;
+
+    if (requestedUserId && (isAdmin || requestedUserId === user.id)) {
+      effectiveUserId = requestedUserId;
+      if (requestedUserId !== user.id) {
+        const { data: targetProfile } = await supabase
+          .from('profiles')
+          .select('team_id')
+          .eq('id', requestedUserId)
+          .maybeSingle();
+        effectiveTeamId = targetProfile?.team_id || effectiveTeamId;
+      }
+    }
+
     // Helper to fetch orders with pagination
     const fetchOrders = async (filterFn: (q: any) => any) => {
       let allOrders: any[] = [];
@@ -64,8 +83,8 @@ export async function GET(request: Request) {
     let teamOrders: any[] = [];
     let globalOrders: any[] = [];
 
-    // Step 1: Always fetch my orders first (to count personal orders)
-    myOrders = await fetchOrders((q) => q.eq('user_id', user.id));
+    // Step 1: Always fetch target user orders first (to count personal orders)
+    myOrders = await fetchOrders((q) => q.eq('user_id', effectiveUserId));
     const myOrderCount = myOrders.length;
 
     // Determine how many team / global orders we need based on myOrderCount
@@ -74,14 +93,14 @@ export async function GET(request: Request) {
       needTeamOrGlobal = true;
     }
 
-    if (profile?.team_id) {
-      teamOrders = await fetchOrders((q) => q.eq('team_id', profile.team_id).neq('user_id', user.id));
+    if (effectiveTeamId) {
+      teamOrders = await fetchOrders((q) => q.eq('team_id', effectiveTeamId).neq('user_id', effectiveUserId));
     }
 
     // Always fetch global orders so any company with GPS coordinates can be detected when nearby
-    let globalFilter = (q: any) => q.neq('user_id', user.id);
-    if (profile?.team_id) {
-      globalFilter = (q: any) => q.neq('user_id', user.id).neq('team_id', profile.team_id);
+    let globalFilter = (q: any) => q.neq('user_id', effectiveUserId);
+    if (effectiveTeamId) {
+      globalFilter = (q: any) => q.neq('user_id', effectiveUserId).neq('team_id', effectiveTeamId);
     }
     globalOrders = await fetchOrders(globalFilter);
 
