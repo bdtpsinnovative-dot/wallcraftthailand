@@ -115,6 +115,8 @@ export async function GET(request: Request) {
       fetchOrders(globalFilter),
     ]);
 
+    const myOrderCount = myOrders.length;
+
     const compMap = new Map();
 
     const processOrders = (orders: any[], isMine: boolean, isTeam: boolean, isGlobal: boolean) => {
