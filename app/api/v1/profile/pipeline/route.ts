@@ -60,6 +60,10 @@ export async function GET(request: Request) {
       return allOrders;
     };
 
+    let myOrders: any[] = [];
+    let teamOrders: any[] = [];
+    let globalOrders: any[] = [];
+
     // Step 1: Always fetch my orders first (to count personal orders)
     myOrders = await fetchOrders((q) => q.eq('user_id', user.id));
     const myOrderCount = myOrders.length;
