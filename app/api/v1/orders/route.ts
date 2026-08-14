@@ -237,6 +237,45 @@ export async function POST(request: Request) {
     }
 
     // ==================================================
+    // 📅 4. อัปเดตแผนการเข้าพบ (Visit Plans) ของสัปดาห์นี้เป็น 'completed' อัตโนมัติ
+    // ==================================================
+    if (currentUserId && company_id) {
+      try {
+        const now = new Date();
+        const day = now.getDay();
+        const diffToMonday = now.getDate() - day + (day === 0 ? -6 : 1);
+        
+        const startOfWeek = new Date(new Date().setDate(diffToMonday));
+        startOfWeek.setHours(0, 0, 0, 0);
+        
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        endOfWeek.setHours(23, 59, 59, 999);
+
+        // หาแผนการเข้าพบที่ค้างอยู่ในสัปดาห์นี้สำหรับบริษัทนี้
+        const { data: pendingPlans } = await supabase
+          .from('visit_plans')
+          .select('id')
+          .eq('user_id', currentUserId)
+          .eq('company_id', company_id)
+          .eq('status', 'pending')
+          .gte('planned_date', startOfWeek.toISOString())
+          .lte('planned_date', endOfWeek.toISOString());
+
+        if (pendingPlans && pendingPlans.length > 0) {
+          const planIds = pendingPlans.map(p => p.id);
+          await supabase
+            .from('visit_plans')
+            .update({ status: 'completed' })
+            .in('id', planIds);
+          console.log(`[VisitPlan] Marked visit plans ${planIds.join(', ')} as completed for company ${company_id}`);
+        }
+      } catch (vpErr) {
+        console.error("[VisitPlan] Error completing visit plan:", vpErr);
+      }
+    }
+
+    // ==================================================
     // 🔔 5. สร้างประวัติแจ้งเตือนลง DB + ยิง FCM แบบแยกเงื่อนไข
     // ==================================================
     try {
