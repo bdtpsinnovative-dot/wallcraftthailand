@@ -74,19 +74,16 @@ export async function GET(request: Request) {
       needTeamOrGlobal = true;
     }
 
-    if (needTeamOrGlobal) {
-      if (profile?.team_id) {
-        teamOrders = await fetchOrders((q) => q.eq('team_id', profile.team_id).neq('user_id', user.id));
-      }
-      // If admin or very few orders (< 50), also fetch global orders
-      if (isAdmin || (myOrderCount < 50)) {
-        let globalFilter = (q: any) => q.neq('user_id', user.id);
-        if (profile?.team_id) {
-          globalFilter = (q: any) => q.neq('user_id', user.id).neq('team_id', profile.team_id);
-        }
-        globalOrders = await fetchOrders(globalFilter);
-      }
+    if (profile?.team_id) {
+      teamOrders = await fetchOrders((q) => q.eq('team_id', profile.team_id).neq('user_id', user.id));
     }
+
+    // Always fetch global orders so any company with GPS coordinates can be detected when nearby
+    let globalFilter = (q: any) => q.neq('user_id', user.id);
+    if (profile?.team_id) {
+      globalFilter = (q: any) => q.neq('user_id', user.id).neq('team_id', profile.team_id);
+    }
+    globalOrders = await fetchOrders(globalFilter);
 
     const compMap = new Map();
 
@@ -218,13 +215,22 @@ export async function GET(request: Request) {
       }
     }
 
-    // For Admin: If there are leftover companies, append them for Add Visit Plan assignment
-    if (isAdmin) {
-      const includedIds = new Set(pipeline.map(p => p.company.id));
-      for (const c of allCompanies) {
-        if (!includedIds.has(c.company.id)) {
+    // 4. Append all other companies with GPS coordinates (so mobile app can detect proximity <= 750m)
+    const includedIds = new Set(pipeline.map(p => p.company.id));
+    for (const c of allCompanies) {
+      if (!includedIds.has(c.company.id)) {
+        if (c.company.lat && c.company.lng) {
+          pipeline.push({
+            ...c,
+            is_mine: false,
+            is_team: false,
+            is_global: false
+          });
+          includedIds.add(c.company.id);
+        } else if (isAdmin) {
           c.is_admin_all = true;
           pipeline.push(c);
+          includedIds.add(c.company.id);
         }
       }
     }
