@@ -34,6 +34,7 @@ export async function GET(request: Request) {
       .select(`
         company_id,
         user_id,
+        audit_log,
         companies (id, name, customer_type_id),
         order_items (
           product_category_id,
