@@ -151,9 +151,17 @@ export async function GET(request: Request) {
     }));
 
     // Split and sort by frequency (visit count)
-    const mineList = allCompanies.filter(c => c.is_mine).sort((a, b) => b.count - a.count);
-    const teamList = allCompanies.filter(c => !c.is_mine && c.is_team).sort((a, b) => b.count - a.count);
-    const globalList = allCompanies.filter(c => !c.is_mine && !c.is_team && c.is_global).sort((a, b) => b.count - a.count);
+    // If it's my company, is_team must be false so it always shows as personal (🏢)
+    const mineList = allCompanies
+      .filter(c => c.is_mine)
+      .map(c => ({ ...c, is_team: false, is_global: false }))
+      .sort((a, b) => b.count - a.count);
+    const teamList = allCompanies
+      .filter(c => !c.is_mine && c.is_team)
+      .sort((a, b) => b.count - a.count);
+    const globalList = allCompanies
+      .filter(c => !c.is_mine && !c.is_team && c.is_global)
+      .sort((a, b) => b.count - a.count);
 
     const TOTAL_SLOTS = 50;
     const pipeline: any[] = [];
