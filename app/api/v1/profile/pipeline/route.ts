@@ -1,5 +1,16 @@
-import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
+// ⚡ Server-Side Cache for Pipeline (5 mins TTL)
+const pipelineCache = new Map<string, { data: any, timestamp: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+export function invalidatePipelineCache(userId?: string) {
+  if (userId) {
+    for (const key of pipelineCache.keys()) {
+      if (key.includes(userId)) pipelineCache.delete(key);
+    }
+  } else {
+    pipelineCache.clear();
+  }
+}
 
 export async function GET(request: Request) {
   try {
@@ -47,27 +58,24 @@ export async function GET(request: Request) {
       }
     }
 
+    // ⚡ Check Server Cache first (Instant ~5ms response!)
+    const cacheKey = `${effectiveUserId}_${effectiveTeamId || 'noteam'}_${isAdmin}`;
+    const cached = pipelineCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
+      return NextResponse.json(cached.data);
+    }
+
     // Helper to fetch orders with pagination
-    const fetchOrders = async (filterFn: (q: any) => any) => {
+    const fetchOrders = async (filterFn: (q: any) => any, isLightweight = false) => {
       let allOrders: any[] = [];
       let start = 0;
       const limit = 1000;
+      const selectFields = isLightweight
+        ? `company_id, user_id, team_id, audit_log, companies (id, name, customer_type_id)`
+        : `company_id, user_id, team_id, audit_log, companies (id, name, customer_type_id), order_items (product_category_id, order_item_projects (id, project_name, project_type_id))`;
+
       while (true) {
-        let baseQuery = supabase
-          .from('orders')
-          .select(`
-            company_id,
-            user_id,
-            team_id,
-            audit_log,
-            companies (id, name, customer_type_id),
-            order_items (
-              product_category_id,
-              order_item_projects (
-                id, project_name, project_type_id
-              )
-            )
-          `);
+        let baseQuery = supabase.from('orders').select(selectFields);
         baseQuery = filterFn(baseQuery);
         const { data: chunk, error } = await baseQuery.range(start, start + limit - 1);
         if (error) throw error;
@@ -79,30 +87,17 @@ export async function GET(request: Request) {
       return allOrders;
     };
 
-    let myOrders: any[] = [];
-    let teamOrders: any[] = [];
-    let globalOrders: any[] = [];
-
-    // Step 1: Always fetch target user orders first (to count personal orders)
-    myOrders = await fetchOrders((q) => q.eq('user_id', effectiveUserId));
-    const myOrderCount = myOrders.length;
-
-    // Determine how many team / global orders we need based on myOrderCount
-    let needTeamOrGlobal = false;
-    if (myOrderCount < 300 || isAdmin) {
-      needTeamOrGlobal = true;
-    }
-
-    if (effectiveTeamId) {
-      teamOrders = await fetchOrders((q) => q.eq('team_id', effectiveTeamId).neq('user_id', effectiveUserId));
-    }
-
-    // Always fetch global orders so any company with GPS coordinates can be detected when nearby
+    // 🚀 Parallel Query Execution (ยิงพร้อมกัน 3 เส้น ไม่ต้องรอคิว)
     let globalFilter = (q: any) => q.neq('user_id', effectiveUserId);
     if (effectiveTeamId) {
       globalFilter = (q: any) => q.neq('user_id', effectiveUserId).neq('team_id', effectiveTeamId);
     }
-    globalOrders = await fetchOrders(globalFilter);
+
+    const [myOrders, teamOrders, globalOrders] = await Promise.all([
+      fetchOrders((q) => q.eq('user_id', effectiveUserId)),
+      effectiveTeamId ? fetchOrders((q) => q.eq('team_id', effectiveTeamId).neq('user_id', effectiveUserId)) : Promise.resolve([]),
+      fetchOrders(globalFilter, true), // lightweight for global
+    ]);
 
     const compMap = new Map();
 
@@ -221,7 +216,10 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json({ pipeline });
+    const responsePayload = { pipeline };
+    pipelineCache.set(cacheKey, { data: responsePayload, timestamp: Date.now() });
+
+    return NextResponse.json(responsePayload);
 
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
