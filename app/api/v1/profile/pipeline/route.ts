@@ -68,11 +68,8 @@ export async function GET(request: Request) {
       return NextResponse.json(cached.data);
     }
 
-    // Helper to fetch orders with pagination
-    const fetchOrders = async (filterFn: (q: any) => any) => {
-      let allOrders: any[] = [];
-      let start = 0;
-      const limit = 1000;
+    // Helper to fetch orders with pagination and limit
+    const fetchOrders = async (filterFn: (q: any) => any, maxRecords = 500) => {
       const selectFields = `
         company_id,
         user_id,
@@ -87,32 +84,31 @@ export async function GET(request: Request) {
         )
       `;
 
-      while (true) {
-        let baseQuery = supabase.from('orders').select(selectFields);
-        baseQuery = filterFn(baseQuery);
-        const { data: chunk, error } = await baseQuery.range(start, start + limit - 1);
-        if (error) {
-          console.error("❌ Supabase orders query error:", error);
-          throw error;
-        }
-        if (!chunk || chunk.length === 0) break;
-        allOrders = allOrders.concat(chunk);
-        if (chunk.length < limit) break;
-        start += limit;
+      let baseQuery = supabase
+        .from('orders')
+        .select(selectFields)
+        .order('created_at', { ascending: false })
+        .limit(maxRecords);
+
+      baseQuery = filterFn(baseQuery);
+      const { data, error } = await baseQuery;
+      if (error) {
+        console.error("❌ Supabase orders query error:", error);
+        throw error;
       }
-      return allOrders;
+      return data || [];
     };
 
-    // 🚀 Parallel Query Execution (ยิงพร้อมกัน 3 เส้น ไม่ต้องรอคิว)
+    // 🚀 Parallel Query Execution (จำกัดเฉพาะออเดอร์ล่าสุดเพื่อความเร็วระดับ Millisecond)
     let globalFilter = (q: any) => q.neq('user_id', effectiveUserId);
     if (effectiveTeamId) {
       globalFilter = (q: any) => q.neq('user_id', effectiveUserId).neq('team_id', effectiveTeamId);
     }
 
     const [myOrders, teamOrders, globalOrders] = await Promise.all([
-      fetchOrders((q) => q.eq('user_id', effectiveUserId)),
-      effectiveTeamId ? fetchOrders((q) => q.eq('team_id', effectiveTeamId).neq('user_id', effectiveUserId)) : Promise.resolve([]),
-      fetchOrders(globalFilter),
+      fetchOrders((q) => q.eq('user_id', effectiveUserId), 1000),
+      effectiveTeamId ? fetchOrders((q) => q.eq('team_id', effectiveTeamId).neq('user_id', effectiveUserId), 300) : Promise.resolve([]),
+      fetchOrders(globalFilter, 200),
     ]);
 
     const myOrderCount = myOrders.length;
