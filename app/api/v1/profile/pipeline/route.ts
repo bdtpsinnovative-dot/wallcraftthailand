@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 const pipelineCache = new Map<string, { data: any, timestamp: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-export function invalidatePipelineCache(userId?: string) {
+function invalidatePipelineCache(userId?: string) {
   if (userId) {
     for (const key of pipelineCache.keys()) {
       if (key.includes(userId)) pipelineCache.delete(key);

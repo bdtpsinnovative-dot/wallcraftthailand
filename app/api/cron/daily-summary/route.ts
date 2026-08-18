@@ -49,6 +49,14 @@ function extractFcmTokens(rawTokens: any): string[] {
     .filter((token): token is string => Boolean(token));
 }
 
+function timeToMinutes(value: unknown): number | null {
+  if (typeof value !== 'string') return null;
+  const [hour, minute] = value.split(':').map(Number);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return hour * 60 + minute;
+}
+
 export async function GET(request: Request) {
   try {
     // Check Cron Secret if needed (Vercel sets Authorization: Bearer CRON_SECRET)
@@ -72,18 +80,22 @@ export async function GET(request: Request) {
     const currentWeekStart = new Date(thailandTime.getTime());
     currentWeekStart.setDate(thailandTime.getDate() - diffToMonday);
     const currentWeekStartString = currentWeekStart.toISOString().split('T')[0];
+    const nextWeekStart = new Date(currentWeekStart.getTime());
+    nextWeekStart.setDate(currentWeekStart.getDate() + 7);
+    const nextWeekStartString = nextWeekStart.toISOString().split('T')[0];
+    const isMonday = dayOfWeek === 1;
+    const currentMinutes = thailandTime.getHours() * 60 + thailandTime.getMinutes();
 
     console.log(`Cron running at ${now.toISOString()}. Today in TH is ${todayDateString}. Week start is ${currentWeekStartString}`);
 
     // ==============================================================
-    // 1. ค้นหาและเปลี่ยนสถานะงานที่เลยกำหนด (Missed) 
+    // 1. ค้นหางานค้างจากสัปดาห์ก่อน โดยไม่เปลี่ยนสถานะ
     // ==============================================================
     const { data: overduePlans, error: overdueError } = await supabase
       .from('visit_plans')
-      .update({ status: 'cancelled' })
+      .select('id, user_id')
       .lt('planned_date', currentWeekStartString)
-      .eq('status', 'pending')
-      .select('id, user_id');
+      .eq('status', 'pending');
 
     if (overdueError) throw overdueError;
 
@@ -122,8 +134,9 @@ export async function GET(request: Request) {
     // ==============================================================
     const { data: todayPlans, error: todayError } = await supabase
       .from('visit_plans')
-      .select('id, user_id')
-      .eq('planned_date', todayDateString)
+      .select('id, user_id, start_time, end_time')
+      .gte('planned_date', todayDateString)
+      .lt('planned_date', new Date(thailandTime.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0])
       .eq('status', 'pending');
 
     if (todayError) throw todayError;
@@ -137,6 +150,34 @@ export async function GET(request: Request) {
       }
     }
 
+    // งานวันนี้ที่เลยเวลา end_time แล้ว แต่ยังคงสถานะ pending ไว้
+    const overdueTodayByUser: Record<string, number> = {};
+    for (const plan of todayPlans || []) {
+      const endMinutes = timeToMinutes(plan.end_time);
+      if (plan.user_id && endMinutes !== null && endMinutes <= currentMinutes) {
+        overdueTodayByUser[plan.user_id] = (overdueTodayByUser[plan.user_id] || 0) + 1;
+      }
+    }
+
+    // ทุกวันจันทร์: สรุปแผนงานของสัปดาห์ใหม่ (จันทร์-อาทิตย์)
+    const weeklyByUser: Record<string, number> = {};
+    let weeklyPlans: any[] = [];
+    if (isMonday) {
+      const { data, error: weeklyError } = await supabase
+        .from('visit_plans')
+        .select('id, user_id')
+        .gte('planned_date', currentWeekStartString)
+        .lt('planned_date', nextWeekStartString)
+        .eq('status', 'pending');
+
+      if (weeklyError) throw weeklyError;
+      weeklyPlans = data || [];
+      for (const plan of weeklyPlans) {
+        if (!plan.user_id) continue;
+        weeklyByUser[plan.user_id] = (weeklyByUser[plan.user_id] || 0) + 1;
+      }
+    }
+
     // ==============================================================
     // 3. ดึง FCM Tokens และส่งแจ้งเตือน
     // ==============================================================
@@ -146,10 +187,12 @@ export async function GET(request: Request) {
     const userIds = new Set([
       ...Object.keys(missedByUser), 
       ...Object.keys(todayByUser),
-      ...Object.keys(overdueThisWeekByUser)
+      ...Object.keys(overdueThisWeekByUser),
+      ...Object.keys(overdueTodayByUser),
+      ...Object.keys(weeklyByUser)
     ]);
 
-    let profiles = [];
+    let profiles: any[] = [];
     if (userIds.size > 0) {
       const { data, error } = await supabase
         .from('profiles')
@@ -162,13 +205,13 @@ export async function GET(request: Request) {
     const messagesToSend: any[] = [];
     const notificationPayloads: any[] = [];
 
-    // แจ้งเตือนแอดมินถ้ามีงานที่ไม่สำเร็จเมื่อจบสัปดาห์
+    // แจ้งเตือนแอดมินถ้ามีงานค้างจากสัปดาห์ก่อน
     if (overduePlans && overduePlans.length > 0) {
       const { data: admins } = await supabase.from('profiles').select('id, fcm_tokens').eq('role', 'admin');
       if (admins) {
         for (const adminUser of admins) {
           const title = 'แจ้งเตือนงานค้างสัปดาห์ก่อน (แอดมิน)';
-          const body = `สัปดาห์ที่ผ่านมา มีแผนงานที่ไม่สำเร็จและถูกยกเลิกอัตโนมัติรวม ${overduePlans.length} รายการ กรุณาตรวจสอบในระบบ`;
+          const body = `สัปดาห์ที่ผ่านมา มีแผนงานที่ยังไม่เสร็จค้างอยู่ ${overduePlans.length} รายการ ระบบยังคงสถานะรอดำเนินการไว้ กรุณาตรวจสอบในระบบ`;
           
           notificationPayloads.push({
             recipient_id: adminUser.id,
@@ -193,17 +236,21 @@ export async function GET(request: Request) {
     for (const profile of profiles || []) {
       const missedCount = missedByUser[profile.id] || 0;
       const todayCount = todayByUser[profile.id] || 0;
-      const overdueThisWeekCount = overdueThisWeekByUser[profile.id] || 0;
+      const overdueThisWeekCount = (overdueThisWeekByUser[profile.id] || 0) + (overdueTodayByUser[profile.id] || 0);
+      const weeklyCount = weeklyByUser[profile.id] || 0;
       
       let bodyLines = [];
       if (missedCount > 0) {
-        bodyLines.push(`มีงานไม่สำเร็จจากสัปดาห์ก่อน ${missedCount} รายการ ระบบอัปเดตสถานะแล้ว`);
+        bodyLines.push(`มีงานค้างจากสัปดาห์ก่อน ${missedCount} รายการ ระบบยังคงสถานะรอดำเนินการไว้`);
       }
       if (todayCount > 0) {
         bodyLines.push(`วันนี้คุณมีคิวเข้าพบลูกค้า ${todayCount} รายการ เตรียมตัวให้พร้อม!`);
       }
+      if (isMonday && weeklyCount > 0) {
+        bodyLines.push(`สัปดาห์นี้มีแผนงานที่ต้องดำเนินการ ${weeklyCount} รายการ`);
+      }
       if (overdueThisWeekCount > 0) {
-        bodyLines.push(`⚠️ คำเตือน: มีงานค้างสัปดาห์นี้ ${overdueThisWeekCount} รายการ ถ้าเลยสัปดาห์จะถือว่าไม่สำเร็จ!`);
+        bodyLines.push(`⚠️ มีแผนงานเลยกำหนดเวลาแล้ว ${overdueThisWeekCount} รายการ กรุณาตรวจสอบและดำเนินการต่อ`);
       }
       
       let body = bodyLines.join(' ');
@@ -272,9 +319,12 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ 
       success: true, 
-      missed_updated: overduePlans?.length || 0,
+      missed_updated: 0,
+      overdue_pending: overduePlans?.length || 0,
       today_plans: todayPlans?.length || 0,
       overdue_this_week: overdueThisWeekPlans?.length || 0,
+      overdue_today: Object.values(overdueTodayByUser).reduce((sum, count) => sum + count, 0),
+      weekly_plans: weeklyPlans.length,
       notifications_sent: successCount,
       notifications_failed: failureCount,
       fcm_errors: fcmErrors
