@@ -184,6 +184,22 @@ export async function POST(request: Request) {
     const isAdmin = requesterProfile?.role === 'admin';
     const targetUserId = (isAdmin && assignedUserId) ? assignedUserId : user.id;
 
+    // โครงการจากประวัติออเดอร์อาจเป็น id ของ order_item_projects ไม่ใช่
+    // projects.id จึงต้องตรวจสอบก่อน เพื่อไม่ให้ชน Foreign Key ตอนบันทึก
+    let validProjectId: string | null = null;
+    if (project_id) {
+      const { data: projectRef, error: projectLookupError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('id', project_id)
+        .maybeSingle();
+      if (projectLookupError) throw projectLookupError;
+      validProjectId = projectRef?.id ?? null;
+      if (!validProjectId) {
+        console.warn(`[VisitPlans][POST] Project id ${project_id} was not found; saving project name as concept instead.`);
+      }
+    }
+
     const { data, error } = await supabase
       .from('visit_plans')
       .insert({
@@ -192,7 +208,7 @@ export async function POST(request: Request) {
         end_time: end_time || null,
         client_request_id: client_request_id || null,
         company_id,
-        project_id: project_id || null,
+        project_id: validProjectId,
         project_concept: project_concept || null,
         project_type_id: project_type_id || null,
         product_category_id: product_category_id || null,
@@ -233,8 +249,8 @@ export async function POST(request: Request) {
           }
 
           let projectName = project_concept;
-          if (project_id) {
-            const { data: proj } = await supabase.from('projects').select('project_name').eq('id', project_id).single();
+          if (validProjectId) {
+            const { data: proj } = await supabase.from('projects').select('project_name').eq('id', validProjectId).single();
             if (proj) projectName = proj.project_name;
           }
 
@@ -296,12 +312,23 @@ export async function PATCH(request: Request) {
       .single();
     const isAdmin = requesterProfile?.role === 'admin';
 
+    let validProjectId: string | null = null;
+    if (body.project_id) {
+      const { data: projectRef, error: projectLookupError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('id', body.project_id)
+        .maybeSingle();
+      if (projectLookupError) throw projectLookupError;
+      validProjectId = projectRef?.id ?? null;
+    }
+
     const updateData: Record<string, any> = {
       planned_date: body.planned_date,
       start_time: body.start_time || null,
       end_time: body.end_time || null,
       company_id: body.company_id,
-      project_id: body.project_id || null,
+      project_id: validProjectId,
       project_concept: body.project_concept || null,
       project_type_id: body.project_type_id || null,
       product_category_id: body.product_category_id || null,
