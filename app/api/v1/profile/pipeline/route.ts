@@ -158,10 +158,16 @@ export async function GET(request: Request) {
                   project_name: proj.project_name,
                   project_type_id: proj.project_type_id,
                   product_category_id: item.product_category_id,
-                  is_mine: isMine
+                  count: 1,
+                  is_mine: isMine,
+                  is_team: isTeam,
+                  is_global: isGlobal,
                 });
-              } else if (isMine) {
-                existingProj.is_mine = true;
+              } else {
+                existingProj.count = (existingProj.count || 0) + 1;
+                if (isMine) existingProj.is_mine = true;
+                if (isTeam) existingProj.is_team = true;
+                if (isGlobal) existingProj.is_global = true;
               }
             }
           });
