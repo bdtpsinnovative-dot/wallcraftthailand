@@ -85,6 +85,7 @@ export async function GET(request: Request) {
         end_time,
         project_concept, 
         status, 
+        is_deleted,
         user_id, 
         company_id, 
         project_id, 
@@ -106,6 +107,7 @@ export async function GET(request: Request) {
     }
 
     const { data: visitPlans, error } = await query
+      .eq('is_deleted', false)
       .gte('planned_date', startDate.toISOString())
       .lte('planned_date', endDate.toISOString())
       .order('planned_date', { ascending: true });
@@ -195,7 +197,8 @@ export async function POST(request: Request) {
         project_type_id: project_type_id || null,
         product_category_id: product_category_id || null,
         user_id: targetUserId,
-        status: 'pending'
+        status: 'pending',
+        is_deleted: false
       })
       .select()
       .single();

@@ -36,7 +36,34 @@ export async function GET(request: Request) {
 
     if (error) throw error;
 
-    return NextResponse.json({ users });
+    const orderCounts: Record<string, number> = {};
+    const pageSize = 1000;
+    for (let offset = 0; ; offset += pageSize) {
+      const { data: orderRows, error: ordersError } = await supabase
+        .from('orders')
+        .select('user_id')
+        .not('user_id', 'is', null)
+        .range(offset, offset + pageSize - 1);
+      if (ordersError) throw ordersError;
+
+      for (const order of orderRows || []) {
+        if (order.user_id) orderCounts[order.user_id] = (orderCounts[order.user_id] || 0) + 1;
+      }
+      if (!orderRows || orderRows.length < pageSize) break;
+    }
+
+    const sortedUsers = (users || [])
+      .map(userProfile => ({
+        ...userProfile,
+        order_count: orderCounts[userProfile.id] || 0,
+      }))
+      .sort((userA, userB) => {
+        const countDifference = userB.order_count - userA.order_count;
+        if (countDifference !== 0) return countDifference;
+        return (userA.full_name || '').localeCompare(userB.full_name || '', 'th');
+      });
+
+    return NextResponse.json({ users: sortedUsers });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

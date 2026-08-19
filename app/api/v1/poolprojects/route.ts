@@ -62,6 +62,8 @@ export async function GET(request: Request) {
           project_name,
           is_important,
           project_type_id,
+          queue_level,
+          project_year,
           ${selectProjectTypes},
           account_developer, 
           contact_developer,
@@ -78,13 +80,14 @@ export async function GET(request: Request) {
           created_at, 
           customer_name, 
           phone,
+          customer_types(name),
           is_synced, 
           audit_log, 
           admin_edits,
           user_id, 
           team_id,
           ${selectProfiles},
-          companies(name)
+          companies(name, customer_types(name))
         )
       `, { count: 'exact' }) 
       .eq('order_item_projects.is_deleted', false) 

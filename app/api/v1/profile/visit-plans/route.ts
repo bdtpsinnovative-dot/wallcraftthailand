@@ -42,6 +42,7 @@ export async function GET(request: Request) {
         end_time,
         project_concept, 
         status, 
+        is_deleted,
         user_id, 
         company_id, 
         project_id, 
@@ -55,6 +56,7 @@ export async function GET(request: Request) {
       `)
       .eq('user_id', user.id)
       .eq('status', 'pending')
+      .eq('is_deleted', false)
       .gte('planned_date', startDate.toISOString())
       .lte('planned_date', endOfWeek.toISOString())
       .order('planned_date', { ascending: true });

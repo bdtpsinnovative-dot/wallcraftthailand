@@ -216,19 +216,26 @@ export async function POST(request: Request) {
       if (hasProjectUsage) {
         projectUsagePayload = item.project_usage.map((usage: any) => {
           const pName = projectMap.get(usage.project_id) || '-';
+          const projectYear = Number.parseInt(String(usage.project_year ?? '').trim(), 10);
           let projectRow: any = {
             order_item_id: savedItem.id,
             project_name: pName,
             area_sqm: usage.area_sqm ? parseFloat(usage.area_sqm) : 0,
-            project_type_id: usage.project_type_id || item.project_type_id || null 
+            project_type_id: usage.project_type_id || item.project_type_id || null,
+            queue_level: usage.queue_level || null,
+            project_year: Number.isFinite(projectYear) ? projectYear : null,
           };
           return injectCompanyNames(projectRow, typeName, companyName);
         });
       } else {
+        const fallbackProjectYear = Number.parseInt(String(item.project_year ?? '').trim(), 10);
         let fallbackProjectRow: any = {
             order_item_id: savedItem.id,
             project_name: 'ไม่มีการระบุโครงการ',
-            area_sqm: 0 
+            area_sqm: 0,
+            project_type_id: item.project_type_id || null,
+            queue_level: item.queue_level || null,
+            project_year: Number.isFinite(fallbackProjectYear) ? fallbackProjectYear : null,
         };
         projectUsagePayload.push(injectCompanyNames(fallbackProjectRow, typeName, companyName));
       }
@@ -259,6 +266,7 @@ export async function POST(request: Request) {
           .eq('user_id', currentUserId)
           .eq('company_id', company_id)
           .eq('status', 'pending')
+          .eq('is_deleted', false)
           .gte('planned_date', startOfWeek.toISOString())
           .lte('planned_date', endOfWeek.toISOString());
 
@@ -295,32 +303,26 @@ export async function POST(request: Request) {
         if (recipients.length > 0) {
           const customerDisplay = companyName || customer_name || 'ลูกค้าทั่วไป';
 
-          let firstProjectName = null;
-          if (items && Array.isArray(items) && items.length > 0) {
-            const firstItem = items[0];
-            if (firstItem.project_usage && Array.isArray(firstItem.project_usage) && firstItem.project_usage.length > 0) {
-              const firstUsage = firstItem.project_usage[0];
-              if (firstUsage.project_id) {
-                firstProjectName = projectMap.get(firstUsage.project_id);
-              }
-            }
-          }
-
           const notifTitle = `Visit : ${customerDisplay}`;
-          let notifBody = `เซลส์ : ${creatorName}`;
-          if (firstProjectName && firstProjectName.trim() !== '') {
-            notifBody = `ได้รับโครงการ : ${firstProjectName}\n${notifBody}`;
-          }
+          const projectNames = (Array.isArray(items) ? items : [])
+            .flatMap((item: any) => Array.isArray(item.project_usage) ? item.project_usage : [])
+            .map((usage: any) => usage.project_id ? projectMap.get(usage.project_id) : null)
+            .filter((name): name is string => typeof name === 'string' && name.trim() !== '');
 
-          const notificationPayloads = recipients.map(member => {
-            return {
+          // หนึ่งโครงการลูก = หนึ่งแจ้งเตือน และใช้ชื่อของโครงการลูกตัวนั้นโดยตรง
+          const notificationBodies = projectNames.length > 0
+            ? projectNames.map(projectName => `ได้รับโครงการ : ${projectName}\nเซลส์ : ${creatorName}`)
+            : [`เซลส์ : ${creatorName}`];
+
+          const notificationPayloads = recipients.flatMap(member =>
+            notificationBodies.map(notifBody => ({
               recipient_id: member.id,
               creator_id: currentUserId,
               title: notifTitle,
               body: notifBody,
               order_id: order.id
-            };
-          });
+            }))
+          );
 
           const { error: dbError } = await supabase.from('notifications').insert(notificationPayloads);
           if (dbError) console.error("[DB] Error saving notification history:", dbError);
@@ -329,52 +331,54 @@ export async function POST(request: Request) {
             const tokens = extractFcmTokens(target.fcm_tokens);
             if (tokens.length === 0) continue;
 
-            try {
-              const messagePayload: admin.messaging.MulticastMessage = {
-                tokens,
-                notification: {
-                  title: notifTitle,
-                  body: notifBody,
-                },
-                data: {
-                  orderId: order.id.toString(),
-                  type: 'new_order'
-                },
-                android: {
-                  priority: 'high',
+            for (const notifBody of notificationBodies) {
+              try {
+                const messagePayload: admin.messaging.MulticastMessage = {
+                  tokens,
                   notification: {
-                    clickAction: 'FLUTTER_NOTIFICATION_CLICK',
-                    ...(!target.is_muted ? { sound: 'default' } : {})
-                  }
-                },
-                apns: {
-                  payload: {
-                    aps: {
-                      badge: 1,
+                    title: notifTitle,
+                    body: notifBody,
+                  },
+                  data: {
+                    orderId: order.id.toString(),
+                    type: 'new_order'
+                  },
+                  android: {
+                    priority: 'high',
+                    notification: {
+                      clickAction: 'FLUTTER_NOTIFICATION_CLICK',
                       ...(!target.is_muted ? { sound: 'default' } : {})
                     }
+                  },
+                  apns: {
+                    payload: {
+                      aps: {
+                        badge: 1,
+                        ...(!target.is_muted ? { sound: 'default' } : {})
+                      }
+                    }
+                  }
+                };
+
+                const fcmResponse = await admin.messaging().sendEachForMulticast(messagePayload);
+                if (fcmResponse.failureCount > 0) {
+                  const failedTokens = fcmResponse.responses
+                    .map((resp, index) => resp.success ? null : tokens[index])
+                    .filter((token): token is string => Boolean(token));
+                  console.error(`[FCM] Failed tokens for ${target.id}:`, failedTokens);
+
+                  const { error: dbError } = await supabase.rpc('remove_invalid_fcm_tokens', {
+                    invalid_tokens: failedTokens
+                  });
+                  if (dbError) {
+                    console.error("❌ [FCM] ลบ Dead Tokens ไม่สำเร็จ:", dbError);
+                  } else {
+                    console.log("✅ [FCM] ลบ Dead Tokens เรียบร้อยแล้ว:", failedTokens);
                   }
                 }
-              };
-
-              const fcmResponse = await admin.messaging().sendEachForMulticast(messagePayload);
-              if (fcmResponse.failureCount > 0) {
-                const failedTokens = fcmResponse.responses
-                  .map((resp, index) => resp.success ? null : tokens[index])
-                  .filter((token): token is string => Boolean(token));
-                console.error(`[FCM] Failed tokens for ${target.id}:`, failedTokens);
-
-                const { error: dbError } = await supabase.rpc('remove_invalid_fcm_tokens', {
-                  invalid_tokens: failedTokens
-                });
-                if (dbError) {
-                  console.error("❌ [FCM] ลบ Dead Tokens ไม่สำเร็จ:", dbError);
-                } else {
-                  console.log("✅ [FCM] ลบ Dead Tokens เรียบร้อยแล้ว:", failedTokens);
-                }
+              } catch (fcmErr) {
+                console.error(`[FCM] Failed to send to ${target.id}:`, fcmErr);
               }
-            } catch (fcmErr) {
-              console.error(`[FCM] Failed to send to ${target.id}:`, fcmErr);
             }
           }
           console.log(`[FCM] ดำเนินการส่งแจ้งเตือนให้ผู้รับทั้งหมด ${recipients.length} คนเรียบร้อยครับนาย!`);

@@ -52,7 +52,7 @@ export async function GET(request: Request) {
         project_id,
         project_type_id,
         product_category_id,
-        projects (id, project_name, project_type_id)
+        projects (id, project_name)
       `)
       .eq('company_id', companyId);
 

@@ -23,6 +23,7 @@ export async function GET(request: Request) {
       .select(`
         id, created_at, customer_name, phone,
         profiles(full_name),
+        customer_types(name),
         companies(name),
         order_items(
           note, images,
