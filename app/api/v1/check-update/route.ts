@@ -9,7 +9,7 @@ export async function GET() {
       latest_version_android: "2.0.2",
       latest_version_ios: "2.0.2",
       // แยก Link ของ Android (APK) และ iOS (TestFlight)
-      download_url_android: "https://app.wallcraftthailand.com/app-release.apk",
+      download_url_android: "https://drive.google.com/file/d/15CSLAdHLv5zxXYGCTcblYt9c8mUgUH2s/view?usp=drive_link",
       download_url_ios: "https://testflight.apple.com/join/BXMvdwVM",
       release_date: "2026-05-12",
       change_log: "เพิ่มระบบตรวจสอบการอัปเดตอัตโนมัติ และปรับปรุงประสิทธิภาพแอป เพิ่มระบบสอตกสินค้าและติดตามสินค้า"
