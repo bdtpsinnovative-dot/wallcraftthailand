@@ -6,7 +6,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function POST(req: Request) {
   try {
-    const { token } = await req.json()
+    const { token, scope } = await req.json()
 
     // 1. ตรวจสอบ Token
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
@@ -19,11 +19,14 @@ export async function POST(req: Request) {
     // 2. หา Team ID ของ User
     const { data: profile } = await supabase
       .from('profiles')
-      .select('team_id')
+      .select('team_id, role')
       .eq('id', user.id)
       .single()
 
     const teamId = profile?.team_id
+    const isSystemAdminView =
+      profile?.role === 'admin' && (!teamId || scope === 'system')
+    const isTeamActivityView = scope === 'team' && !!teamId
 
     // 🌟 3. 🛠️ แก้บั๊ก: สร้าง Function ผลิต Query แยกกล่องเพื่อยิงคู่ขนาน ทะลุลิมิต 1,000 แถว
     const buildProjectsQuery = () => {
@@ -31,6 +34,7 @@ export async function POST(req: Request) {
         .from('order_item_projects')
         .select(`
           id,
+          project_name,
           order_items!inner (
             orders!inner (
               user_id,
@@ -39,6 +43,11 @@ export async function POST(req: Request) {
           )
         `, { count: 'exact' }) // ขอจำนวนที่แท้จริงในเบสมาคำนวณ
         .eq('is_deleted', false)
+        .not('project_name', 'is', null)
+        .neq('project_name', '')
+        .neq('project_name', '-')
+        .not('project_name', 'ilike', '%ไม่มีการระบุโครงการ%')
+        .not('project_name', 'ilike', '%ไม่ระบุโครงการ%')
     }
 
     // 🌟 3.1 ยิงไปเช็คยอดรวมทั้งหมดก่อน
@@ -85,11 +94,89 @@ export async function POST(req: Request) {
       }
     })
 
+    let visitPlanStats = {
+      total: 0,
+      completed: 0,
+      unsuccessful: 0,
+    }
+
+    if (isSystemAdminView || isTeamActivityView) {
+      let visitPlansQuery = supabase
+        .from('visit_plans')
+        .select('status, planned_date, end_time')
+        .eq('is_deleted', false)
+
+      let visitPlans: any[] | null = []
+      if (isTeamActivityView) {
+        const { data: teamMembers, error: teamMembersError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('team_id', teamId)
+        if (teamMembersError) throw teamMembersError
+
+        const teamMemberIds = (teamMembers || []).map(member => member.id)
+        if (teamMemberIds.length > 0) {
+          const { data, error } = await visitPlansQuery.in('user_id', teamMemberIds)
+          if (error) throw error
+          visitPlans = data
+        }
+      } else {
+        const { data, error } = await visitPlansQuery
+        if (error) throw error
+        visitPlans = data
+      }
+
+      const now = new Date()
+      const failedStatuses = new Set([
+        'missed',
+        'failed',
+        'canceled',
+        'cancelled',
+        'overdue',
+      ])
+      let completed = 0
+      let unsuccessful = 0
+
+      for (const plan of visitPlans || []) {
+        const status = String(plan.status || 'pending')
+
+        if (status === 'completed' || status === 'success') {
+          completed++
+          continue
+        }
+
+        const plannedDate = plan.planned_date ? new Date(plan.planned_date) : null
+        const endTimeMatch = String(plan.end_time || '').match(/^(\d{1,2}):(\d{2})/)
+        const deadline = plannedDate
+          ? new Date(
+              plannedDate.getFullYear(),
+              plannedDate.getMonth(),
+              plannedDate.getDate(),
+              endTimeMatch ? Number(endTimeMatch[1]) : 23,
+              endTimeMatch ? Number(endTimeMatch[2]) : 59,
+              endTimeMatch ? 0 : 59,
+            )
+          : null
+
+        if (failedStatuses.has(status) || (status === 'pending' && deadline && now > deadline)) {
+          unsuccessful++
+        }
+      }
+
+      visitPlanStats = {
+        total: visitPlans?.length || 0,
+        completed,
+        unsuccessful,
+      }
+    }
+
     // 5. ส่งค่ากลับไปแบบตัวเลขเป๊ะๆ ชัวร์ 100%
     return NextResponse.json({
       myOrders: myCount,
       teamOrders: teamCount,
-      totalOrders: myCount + teamCount
+      totalOrders: isSystemAdminView ? totalRows : myCount + teamCount,
+      isSystemAdminView,
+      visitPlanStats,
     })
 
   } catch (error) {

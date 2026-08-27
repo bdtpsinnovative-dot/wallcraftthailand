@@ -3,13 +3,41 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
+function corsHeaders(request: Request): Headers {
+  const origin = request.headers.get('origin') ?? '';
+  const isFlutterWebDevServer = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
+  const headers = new Headers();
+
+  if (!isFlutterWebDevServer) {
+    return headers;
+  }
+
+  headers.set('Access-Control-Allow-Origin', origin);
+  headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  headers.set('Vary', 'Origin');
+  return headers;
+}
+
+export function OPTIONS(request: Request) {
+  return new NextResponse(null, {
+    status: 204,
+    headers: corsHeaders(request),
+  });
+}
+
 export async function POST(request: Request) {
+  const headers = corsHeaders(request);
+
   try {
     const { email, password } = await request.json();
 
     // 1. ตรวจสอบข้อมูลเบื้องต้น (Server-side Validation)
     if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Email and password are required' },
+        { status: 400, headers },
+      );
     }
 
     // 2. ใช้ Service Role Key หรือ Anon Key ที่เก็บไว้ใน .env ของ Server เท่านั้น
@@ -25,7 +53,7 @@ export async function POST(request: Request) {
     });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 401 });
+      return NextResponse.json({ error: error.message }, { status: 401, headers });
     }
 
     // 4. ส่ง Session กลับไปให้ Flutter
@@ -33,9 +61,12 @@ export async function POST(request: Request) {
       message: 'Login successful',
       session: data.session,
       user: data.user
-    });
+    }, { headers });
 
   } catch (err) {
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500, headers },
+    );
   }
 }

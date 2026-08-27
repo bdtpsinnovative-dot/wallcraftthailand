@@ -1,7 +1,32 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+function corsHeaders(request: NextRequest): Headers {
+  const origin = request.headers.get('origin') ?? ''
+  const isFlutterWebDevServer = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)
+  const headers = new Headers()
+
+  if (!isFlutterWebDevServer) return headers
+
+  headers.set('Access-Control-Allow-Origin', origin)
+  headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+  headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  headers.set('Vary', 'Origin')
+  return headers
+}
+
 export function middleware(request: NextRequest) {
+  // Flutter Web รันจาก localhost คนละ origin กับ Next.js ในระหว่างพัฒนา
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    const headers = corsHeaders(request)
+
+    if (request.method === 'OPTIONS') {
+      return new NextResponse(null, { status: 204, headers })
+    }
+
+    return NextResponse.next({ headers })
+  }
+
   // 🟢 1. เปิดทางด่วนให้ไฟล์ระบบที่จำเป็น! ปล่อยผ่านทันทีไม่ต้องเช็คบอท
   // (เพื่อให้บอทเข้ามาอ่านกฎ robots.txt ของเราได้ และไม่ให้หน้าเว็บแจ้งเตือน error ไฟล์ภาพ)
   const allowedPaths = ['/robots.txt', '/sitemap.xml', '/favicon.ico', '/favicon.png']
