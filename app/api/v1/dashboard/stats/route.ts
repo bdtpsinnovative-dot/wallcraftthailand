@@ -1,20 +1,24 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+import { authenticateRequestUser, getSupabaseAdmin } from '@/app/lib/auth-helper'
 
 export async function POST(req: Request) {
   try {
-    const { token, scope } = await req.json()
+    let token: string | null = null
+    let scope: string | undefined = undefined
+    try {
+      const body = await req.json()
+      token = body?.token ?? null
+      scope = body?.scope
+    } catch (_) {}
 
-    // 1. ตรวจสอบ Token
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    // 1. ตรวจสอบ Token พร้อม Graceful Fallback
+    const { user, error: authError } = await authenticateRequestUser(req, token)
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const supabase = getSupabaseAdmin()
 
     // 2. หา Team ID ของ User
     const { data: profile } = await supabase

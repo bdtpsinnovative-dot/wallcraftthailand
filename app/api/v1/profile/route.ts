@@ -1,26 +1,26 @@
 //app/api/v1/profile/route.ts
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { authenticateRequestUser, getSupabaseAdmin } from '@/app/lib/auth-helper';
 
 // --------------------------------------------------------
 // 1. ฟังก์ชัน POST (ดึงข้อมูลโปรไฟล์)
 // --------------------------------------------------------
 export async function POST(request: Request) {
   try {
-    const { token } = await request.json();
-    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    let bodyToken: string | null = null;
+    try {
+      const body = await request.json();
+      bodyToken = body?.token ?? null;
+    } catch (_) {}
 
-    const supabaseUrl = process.env.SUPABASE_URL!;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!; // ใช้ Service Role เพื่อ bypass RLS ในบางกรณี
+    // ✅ ตรวจสอบ Token พร้อม Graceful Fallback รองรับทั้ง Token ปกติและ Token ที่เพิ่งหมดอายุ
+    const { user, error: authError } = await authenticateRequestUser(request, bodyToken);
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // ✅ 1. ตรวจสอบ Token
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
     if (authError || !user) {
       return NextResponse.json({ error: 'Invalid or Expired Token' }, { status: 401 });
     }
+
+    const supabase = getSupabaseAdmin();
 
     // ✅ 2. ดึงโปรไฟล์ (รวมคอลัมน์ noti_level และ is_muted ที่เราเพิ่มใหม่)
     const { data: profile, error } = await supabase
@@ -68,14 +68,10 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { token, full_name, phone_number, avatar_url, noti_level, is_muted } = body;
 
-    const supabaseUrl = process.env.SUPABASE_URL!;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // ตรวจสอบ Token
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { user, error: authError } = await authenticateRequestUser(request, token);
     if (authError || !user) return NextResponse.json({ error: 'Invalid Token' }, { status: 401 });
+
+    const supabase = getSupabaseAdmin();
 
     // ✅ เตรียมข้อมูลอัปเดต
     const updateData: any = { 
