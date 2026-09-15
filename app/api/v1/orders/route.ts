@@ -89,7 +89,7 @@ export async function POST(request: Request) {
 
     let effectiveCompanyId = company_id;
 
-    // 🛡️ หากไม่ได้ส่ง company_id มา แต่มี company_name ให้ลองค้นหาจากชื่อในฐานข้อมูล
+    // 🛡️ หากไม่ได้ส่ง company_id มา ให้ลองค้นหาจากชื่อในฐานข้อมูล
     if (!effectiveCompanyId && typeof company_name === 'string' && company_name.trim()) {
       const { data: matchedComp } = await supabase
         .from('companies')
@@ -100,6 +100,38 @@ export async function POST(request: Request) {
 
       if (matchedComp) {
         effectiveCompanyId = matchedComp.id;
+      }
+    }
+
+    // 🛡️ หากยังไม่มี company_id: ลองตรวจว่า customer_name เป็นชื่อบริษัทตรงๆ หรือไม่
+    if (!effectiveCompanyId && typeof customer_name === 'string' && customer_name.trim()) {
+      const { data: matchedCompByName } = await supabase
+        .from('companies')
+        .select('id, name, customer_type_id')
+        .ilike('name', customer_name.trim())
+        .limit(1)
+        .maybeSingle();
+
+      if (matchedCompByName) {
+        effectiveCompanyId = matchedCompByName.id;
+      }
+    }
+
+    // 🛡️ หากยังไม่มี company_id: ตรวจสอบจากประวัติเช็คอินของทีมในวันเดียวกันที่มี customer_name เดียวกัน (เช่น คุณหนอ -> IA103)
+    if (!effectiveCompanyId && typeof customer_name === 'string' && customer_name.trim()) {
+      const todayStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data: recentSameCustomer } = await supabase
+        .from('orders')
+        .select('company_id')
+        .not('company_id', 'is', null)
+        .ilike('customer_name', customer_name.trim())
+        .gte('created_at', todayStart)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (recentSameCustomer?.company_id) {
+        effectiveCompanyId = recentSameCustomer.company_id;
       }
     }
 
