@@ -76,7 +76,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { 
-      token, user_id, customer_type_id, company_id, 
+      token, user_id, customer_type_id, company_id, company_name,
       customer_name, phone, items, audit_log 
     } = body;
 
@@ -87,19 +87,39 @@ export async function POST(request: Request) {
       if (user) currentUserId = user.id;
     }
 
+    let effectiveCompanyId = company_id;
+
+    // 🛡️ หากไม่ได้ส่ง company_id มา แต่มี company_name ให้ลองค้นหาจากชื่อในฐานข้อมูล
+    if (!effectiveCompanyId && typeof company_name === 'string' && company_name.trim()) {
+      const { data: matchedComp } = await supabase
+        .from('companies')
+        .select('id, name, customer_type_id')
+        .ilike('name', company_name.trim())
+        .limit(1)
+        .maybeSingle();
+
+      if (matchedComp) {
+        effectiveCompanyId = matchedComp.id;
+      }
+    }
+
     let team_id = null;
-    let companyName = null;
+    let companyName: string | null = null;
     let typeName = '';
 
     const [profileRes, companyRes, typeRes] = await Promise.all([
       currentUserId ? supabase.from('profiles').select('team_id, full_name').eq('id', currentUserId).maybeSingle() : Promise.resolve({ data: null }),
-      company_id ? supabase.from('companies').select('name').eq('id', company_id).maybeSingle() : Promise.resolve({ data: null }),
+      effectiveCompanyId ? supabase.from('companies').select('id, name, customer_type_id, customer_types(name)').eq('id', effectiveCompanyId).maybeSingle() : Promise.resolve({ data: null }),
       customer_type_id ? supabase.from('customer_types').select('name').eq('id', customer_type_id).maybeSingle() : Promise.resolve({ data: null }),
     ]);
 
     team_id = profileRes.data?.team_id;
-    companyName = companyRes.data?.name;
-    typeName = typeRes.data?.name || '';
+    companyName = companyRes.data?.name || (typeof company_name === 'string' && company_name.trim() ? company_name.trim() : null);
+
+    // 🌟 หากเซลส์ไม่ได้เลือกประเภทลูกค้า (หรือบริษัทไม่มีประเภทลูกค้า) ให้ Fallback ใช้ประเภทลูกค้าจากตาราง companies
+    const effectiveCustomerTypeId = customer_type_id || companyRes.data?.customer_type_id || null;
+    const companyCustomerTypeName = (companyRes.data?.customer_types as any)?.name || '';
+    typeName = typeRes.data?.name || companyCustomerTypeName || '';
     const creatorName = profileRes.data?.full_name || 'เพื่อนร่วมทีม'; 
 
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
@@ -142,7 +162,7 @@ export async function POST(request: Request) {
         if (
           String(lastOrder.customer_name || '') === String(customer_name || '') &&
           String(lastOrder.phone || '') === String(phone || '') &&
-          String(lastOrder.company_id || '') === String(company_id || '') &&
+          String(lastOrder.company_id || '') === String(effectiveCompanyId || '') &&
           lastOrderItemsKey === incomingItemsKey
         ) {
           console.warn(`[API] ตรวจพบการบันทึก Order ซ้ำซ้อนจาก User: ${currentUserId} ภายใน 2 นาที ระบบจะนำข้อมูลเดิมไปตอบกลับ`);
@@ -157,8 +177,8 @@ export async function POST(request: Request) {
       .insert({
         user_id: currentUserId || null,
         team_id: team_id || null, 
-        company_id: company_id || null,
-        customer_type_id: customer_type_id || null,
+        company_id: effectiveCompanyId || null,
+        customer_type_id: effectiveCustomerTypeId || null,
         customer_name: customer_name || null,
         phone: phone || null,
         audit_log: audit_log ? { ...audit_log, network: { ip: ip } } : null
@@ -397,12 +417,16 @@ export async function POST(request: Request) {
 }
 
 function injectCompanyNames(projectRow: any, typeName: string, companyName: string | null) {
-  const typeStr = typeName.toLowerCase();
+  const typeStr = (typeName || '').toLowerCase();
   if (typeStr.includes('developer')) projectRow.account_developer = companyName;
   else if (typeStr.includes('architect')) projectRow.account_architecture = companyName;
   else if (typeStr.includes('interior')) projectRow.account_interior = companyName;
   else if (typeStr.includes('contractor') || typeStr.includes('turnkey') || typeStr.includes('builder')) {
     projectRow.account_contractor = companyName; 
+  } else if (companyName) {
+    // 🌟 Fallback สำหรับกรณีไม่มีประเภทลูกค้า หรือเป็นประเภทอื่น (เช่น Office)
+    // เพื่อให้ชื่อบริษัทถูกเก็บลงในโปรเจกต์เสมอ ไม่หลุดหายจากการ์ด Pool Project
+    projectRow.account_developer = companyName;
   }
   return projectRow;
 }

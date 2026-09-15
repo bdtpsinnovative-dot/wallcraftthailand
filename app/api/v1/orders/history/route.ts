@@ -50,6 +50,10 @@ export async function GET(request: Request) {
             id,
             area_sqm,
             project_name,
+            account_developer,
+            account_architecture,
+            account_interior,
+            account_contractor,
             is_deleted 
           )
         )
@@ -61,8 +65,22 @@ export async function GET(request: Request) {
   
     if (error) throw error;
 
-    // 🌟 2. ท่าไม้ตาย: ใช้ JavaScript กรองโครงการที่ถูกลบออก (ชัวร์ 100%)
+    // 🌟 2. ท่าไม้ตาย: ใช้ JavaScript กรองโครงการที่ถูกลบออก และ Fallback ชื่อบริษัทหาก company_id เป็น null
     const safeData = data.map((order: any) => {
+      let companyName = order.companies?.name;
+      if (!companyName) {
+        for (const item of (order.order_items || [])) {
+          for (const proj of (item.order_item_projects || [])) {
+            companyName = proj.account_developer || proj.account_architecture || proj.account_interior || proj.account_contractor;
+            if (companyName) break;
+          }
+          if (companyName) break;
+        }
+        if (companyName) {
+          order.companies = { name: companyName };
+        }
+      }
+
       return {
         ...order,
         order_items: order.order_items.map((item: any) => {

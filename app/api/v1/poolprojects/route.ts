@@ -152,9 +152,27 @@ export async function GET(request: Request) {
     const { data, count, error } = await query.range(from, to);
 
     if (error) throw error;
+
+    const normalizedData = (data || []).map((item: any) => {
+      if (item.orders && (!item.orders.companies || !item.orders.companies.name)) {
+        const projects = Array.isArray(item.order_item_projects) ? item.order_item_projects : [];
+        let fallbackComp = '';
+        for (const p of projects) {
+          fallbackComp = p.account_developer || p.account_architecture || p.account_interior || p.account_contractor || '';
+          if (fallbackComp) break;
+        }
+        if (fallbackComp) {
+          item.orders.companies = {
+            ...(item.orders.companies || {}),
+            name: fallbackComp,
+          };
+        }
+      }
+      return item;
+    });
     
     return NextResponse.json({ 
-      data: data, 
+      data: normalizedData, 
       total: count,
       page: page,
       limit: limit
