@@ -10,15 +10,19 @@ if (privateKey?.startsWith('"') && privateKey.endsWith('"')) {
 }
 
 if (!getApps().length && projectId && clientEmail && privateKey) {
-  initializeApp({
-    credential: cert({
-      projectId,
-      clientEmail,
-      privateKey: privateKey.replace(/\\n/g, '\n'),
-    }),
-  });
+  try {
+    initializeApp({
+      credential: cert({
+        projectId,
+        clientEmail,
+        privateKey: privateKey.replace(/\\n/g, '\n'),
+      }),
+    });
+  } catch (e) {
+    console.error('Firebase admin initialization error:', e);
+  }
 }
 
-const messaging = getMessaging();
+const messaging = getApps().length ? getMessaging() : (null as any);
 
 export { messaging };
