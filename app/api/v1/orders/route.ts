@@ -265,6 +265,8 @@ export async function POST(request: Request) {
       let projectUsagePayload = [];
       const hasProjectUsage = item.project_usage && Array.isArray(item.project_usage) && item.project_usage.length > 0;
 
+      const effectiveAccountName = companyName || (typeof customer_name === 'string' && customer_name.trim() ? customer_name.trim() : null);
+
       if (hasProjectUsage) {
         projectUsagePayload = item.project_usage.map((usage: any) => {
           const pName = projectMap.get(usage.project_id) || '-';
@@ -277,7 +279,7 @@ export async function POST(request: Request) {
             queue_level: usage.queue_level || null,
             project_year: Number.isFinite(projectYear) ? projectYear : null,
           };
-          return injectCompanyNames(projectRow, typeName, companyName);
+          return injectCompanyNames(projectRow, typeName, effectiveAccountName);
         });
       } else {
         const fallbackProjectYear = Number.parseInt(String(item.project_year ?? '').trim(), 10);
@@ -289,7 +291,7 @@ export async function POST(request: Request) {
             queue_level: item.queue_level || null,
             project_year: Number.isFinite(fallbackProjectYear) ? fallbackProjectYear : null,
         };
-        projectUsagePayload.push(injectCompanyNames(fallbackProjectRow, typeName, companyName));
+        projectUsagePayload.push(injectCompanyNames(fallbackProjectRow, typeName, effectiveAccountName));
       }
 
       await supabase.from('order_item_projects').insert(projectUsagePayload);

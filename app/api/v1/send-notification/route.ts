@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     // ลบ Token ที่ตายแล้วออกจาก Database
     if (response.failureCount > 0) {
       const failedTokens: string[] = [];
-      response.responses.forEach((resp, idx) => {
+      response.responses.forEach((resp: any, idx: number) => {
         if (!resp.success) {
           failedTokens.push(tokens[idx]);
         }

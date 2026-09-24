@@ -154,17 +154,25 @@ export async function GET(request: Request) {
     if (error) throw error;
 
     const normalizedData = (data || []).map((item: any) => {
-      if (item.orders && (!item.orders.companies || !item.orders.companies.name)) {
+      if (item.orders) {
         const projects = Array.isArray(item.order_item_projects) ? item.order_item_projects : [];
         let fallbackComp = '';
         for (const p of projects) {
           fallbackComp = p.account_developer || p.account_architecture || p.account_interior || p.account_contractor || '';
           if (fallbackComp) break;
         }
-        if (fallbackComp) {
+
+        const existingCompanyName = item.orders.companies?.name || '';
+        const effectiveCompanyName = existingCompanyName || fallbackComp;
+        const customerName = (item.orders.customer_name || '').trim();
+
+        // Fallback: ถ้าไม่มีชื่อบริษัท ให้ใช้ชื่อลูกค้า/ผู้ติดต่อ
+        const finalName = effectiveCompanyName || customerName;
+
+        if (finalName) {
           item.orders.companies = {
             ...(item.orders.companies || {}),
-            name: fallbackComp,
+            name: finalName,
           };
         }
       }
