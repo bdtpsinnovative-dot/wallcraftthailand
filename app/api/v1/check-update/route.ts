@@ -6,7 +6,7 @@ export async function GET() {
       // เอาไว้สำหรับแอปเวอร์ชันเก่าที่ยังไม่ได้อัปเดตโค้ดใหม่ จะได้ไม่พัง
       latest_version: "2.0.0",
       // แยก Version ของ Android และ iOS (สำหรับแอปเวอร์ชันใหม่)
-      latest_version_android: "2.0.4",
+      latest_version_android: "2.0.7",
       latest_version_ios: "2.0.4",
       // แยก Link ของ Android (APK) และ iOS (TestFlight)
       download_url_android: "https://app.wallcraftthailand.com/app-release.apk",
