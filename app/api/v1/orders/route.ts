@@ -51,20 +51,37 @@ const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+async function fetchAllProjects() {
+  const batchSize = 1000;
+  let allProjects: any[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(from, from + batchSize - 1);
+    if (error || !data || data.length === 0) break;
+    allProjects.push(...data);
+    if (data.length < batchSize) break;
+    from += batchSize;
+  }
+  return allProjects;
+}
+
 export async function GET() {
   try {
-    // 🟢 1. เพิ่มการ Query 'project_types' เข้าไปใน Promise.all
     const [customerTypes, productCategories, projects, projectTypes] = await Promise.all([
       supabase.from('customer_types').select('*').order('created_at'),
       supabase.from('product_categories').select('*').order('created_at'),
-      supabase.from('projects').select('*').order('created_at'),
+      fetchAllProjects(),
       supabase.from('project_types').select('*').order('id'),
     ]);
 
     return NextResponse.json({
       customer_types: customerTypes.data || [],
       product_categories: productCategories.data || [],
-      projects: projects.data || [],
+      projects: projects || [],
       project_types: projectTypes.data || []
     });
   } catch (err: any) {
@@ -100,6 +117,19 @@ export async function POST(request: Request) {
 
       if (matchedComp) {
         effectiveCompanyId = matchedComp.id;
+      } else {
+        const { data: createdComp } = await supabase
+          .from('companies')
+          .insert({
+            name: company_name.trim(),
+            customer_type_id: customer_type_id || null,
+          })
+          .select('id, name, customer_type_id')
+          .maybeSingle();
+
+        if (createdComp) {
+          effectiveCompanyId = createdComp.id;
+        }
       }
     }
 
@@ -222,8 +252,26 @@ export async function POST(request: Request) {
     // 📦 2. ตรวจสอบและอัปโหลดรูปภาพลง Cloudflare R2
     let orderItemsToProcess = items && Array.isArray(items) && items.length > 0 ? items : [{}];
 
-    const { data: allProjects } = await supabase.from('projects').select('id, project_name');
-    const projectMap = new Map(allProjects?.map(p => [p.id, p.project_name]) || []);
+    // 🔍 ดึงข้อมูลโปรเจกต์เฉพาะที่ถูกอ้างอิงใน Order นี้ (ป้องกัน PostgREST 1,000 แถว truncation)
+    const requestedProjectIds = Array.from(
+      new Set(
+        orderItemsToProcess
+          .flatMap((item: any) => Array.isArray(item.project_usage) ? item.project_usage : [])
+          .map((u: any) => u.project_id)
+          .filter(Boolean)
+      )
+    );
+
+    const projectMap = new Map<string, string>();
+    if (requestedProjectIds.length > 0) {
+      const { data: matchedProjects } = await supabase
+        .from('projects')
+        .select('id, project_name')
+        .in('id', requestedProjectIds);
+      if (matchedProjects) {
+        matchedProjects.forEach((p: any) => projectMap.set(p.id, p.project_name));
+      }
+    }
 
     for (const item of orderItemsToProcess) {
       let itemImageUrls: string[] = [];
@@ -268,8 +316,25 @@ export async function POST(request: Request) {
       const effectiveAccountName = companyName || (typeof customer_name === 'string' && customer_name.trim() ? customer_name.trim() : null);
 
       if (hasProjectUsage) {
-        projectUsagePayload = item.project_usage.map((usage: any) => {
-          const pName = projectMap.get(usage.project_id) || '-';
+        projectUsagePayload = await Promise.all(item.project_usage.map(async (usage: any) => {
+          let pName = (usage.project_name && typeof usage.project_name === 'string' && usage.project_name.trim() && usage.project_name !== '-')
+            ? usage.project_name.trim()
+            : projectMap.get(usage.project_id);
+
+          if ((!pName || pName === '-') && usage.project_id) {
+            const { data: singleProj } = await supabase
+              .from('projects')
+              .select('project_name')
+              .eq('id', usage.project_id)
+              .maybeSingle();
+            if (singleProj?.project_name) {
+              pName = singleProj.project_name;
+              projectMap.set(usage.project_id, singleProj.project_name);
+            }
+          }
+
+          pName = pName || '-';
+
           const projectYear = Number.parseInt(String(usage.project_year ?? '').trim(), 10);
           let projectRow: any = {
             order_item_id: savedItem.id,
@@ -280,7 +345,7 @@ export async function POST(request: Request) {
             project_year: Number.isFinite(projectYear) ? projectYear : null,
           };
           return injectCompanyNames(projectRow, typeName, effectiveAccountName);
-        });
+        }));
       } else {
         const fallbackProjectYear = Number.parseInt(String(item.project_year ?? '').trim(), 10);
         let fallbackProjectRow: any = {
@@ -360,8 +425,8 @@ export async function POST(request: Request) {
           const notifTitle = `Visit : ${customerDisplay}`;
           const projectNames = (Array.isArray(items) ? items : [])
             .flatMap((item: any) => Array.isArray(item.project_usage) ? item.project_usage : [])
-            .map((usage: any) => usage.project_id ? projectMap.get(usage.project_id) : null)
-            .filter((name): name is string => typeof name === 'string' && name.trim() !== '');
+            .map((usage: any) => (usage.project_name && usage.project_name !== '-') ? usage.project_name : (usage.project_id ? projectMap.get(usage.project_id) : null))
+            .filter((name): name is string => typeof name === 'string' && name.trim() !== '' && name.trim() !== '-');
 
           // หนึ่งโครงการลูก = หนึ่งแจ้งเตือน และใช้ชื่อของโครงการลูกตัวนั้นโดยตรง
           const notificationBodies = projectNames.length > 0

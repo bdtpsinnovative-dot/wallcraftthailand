@@ -100,7 +100,11 @@ export async function GET(request: Request) {
     }
 
     if (searchKeyword.trim() !== '') {
-      query = query.ilike('order_item_projects.project_name', `%${searchKeyword}%`);
+      const kw = searchKeyword.trim();
+      query = query.or(
+        `project_name.ilike.%${kw}%,account_developer.ilike.%${kw}%,account_architecture.ilike.%${kw}%,account_interior.ilike.%${kw}%,account_contractor.ilike.%${kw}%`,
+        { foreignTable: 'order_item_projects' }
+      );
     }
 
     if (categories) {
