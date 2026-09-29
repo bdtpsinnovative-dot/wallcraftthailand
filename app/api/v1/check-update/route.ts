@@ -7,7 +7,7 @@ export async function GET() {
       latest_version: "2.0.0",
       // แยก Version ของ Android และ iOS (สำหรับแอปเวอร์ชันใหม่)
       latest_version_android: "2.0.7",
-      latest_version_ios: "2.0.4",
+      latest_version_ios: "2.0.7",
       // แยก Link ของ Android (APK) และ iOS (TestFlight)
       download_url_android: "https://app.wallcraftthailand.com/app-release.apk",
       download_url_ios: "https://testflight.apple.com/join/BXMvdwVM",
@@ -20,6 +20,6 @@ export async function GET() {
     return NextResponse.json(
       { error: "Failed to fetch update data" },
       { status: 500 }
-    );
+    );  
   }
 }
