@@ -12,7 +12,7 @@ const supabase = createClient(
 
 export async function GET(request: Request) {
   try {
-    // 1. ดึงข้อมูลตารางหลัก + รูปลิงก์ตรงๆ (ไม่มีการ JOIN แล้ว)
+    // 1. ดึงข้อมูลตารางหลัก + รูปลิงก์ตรงๆ
     const { data, error } = await supabase
       .from('stock_balance')
       .select(`
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 
     if (error) throw error;
 
-    // 🌟 2. ดึงยอดที่กำลัง "รออนุมัติ (pending)" จาก stock_out มาคำนวณ (ส่วนนี้ไม่ต้องแก้ ทำงานตามเดิม)
+    // 🌟 2. ดึงยอดที่กำลัง "รออนุมัติ (pending)" จาก stock_out มาคำนวณ
     const { data: pendingData } = await supabase
       .from('stock_out')
       .select('product_id, qty')
@@ -36,28 +36,53 @@ export async function GET(request: Request) {
       });
     }
 
-    // 3. จัดระเบียบข้อมูลและยัด pending_qty ลงไป
+    // 3. จัดระเบียบข้อมูลและคลีน URL รูปภาพให้สมบูรณ์ 100%
     const formattedData = data.map((item: any) => {
+      let rawImage = item.catalog_image_url ? String(item.catalog_image_url).trim() : null;
+      if (rawImage && rawImage.startsWith('//')) {
+        rawImage = `https:${rawImage}`;
+      }
+
       return {
         id: item.id,
         series: item.series ?? '-',
         item_name: item.item_name ?? '-',
         color: item.color_name ?? '-',
+        color_name: item.color_name ?? '-',
         material: item.material ?? '-',
         height_mm: item.height_mm ?? 0,
         width_mm: item.width_mm ?? 0,
         thickness_mm: item.thickness_mm ?? 0,
         qty: item.qty ?? 0,
         pending_qty: pendingMap[item.id] || 0,
-        catalog_image: item.catalog_image_url || null, // 👈 ดึงจากคอลัมน์ใหม่ตรงๆ
-        catalog_sku: '-' // ⚠️ ดูข้อควรระวังด้านล่าง
+        catalog_image: rawImage,        // คีย์หลักที่ stock_management_page.dart ใช้อ่าน
+        image: rawImage,                // คีย์สำรองสำหรับ widget ทั่วไป
+        image_url: rawImage,            // คีย์สำรองมาตรฐาน
+        catalog_sku: '-'
       };
     });
 
-    return NextResponse.json({ success: true, data: formattedData });
+    return NextResponse.json(
+      { success: true, data: formattedData },
+      {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+      }
+    );
 
   } catch (error: any) {
     console.error('Stock API Error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: error.message },
+      {
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
   }
 }
