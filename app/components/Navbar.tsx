@@ -130,6 +130,8 @@ export default function Navbar() {
           </div>
 
           <Link href="/match-inspiration" prefetch={false} onClick={closeMobileMenu} className="text-[11px] uppercase tracking-[0.4em] text-white">Match Inspiration</Link>
+          <Link href="/support/studio-qa" prefetch={false} onClick={closeMobileMenu} className="text-[11px] uppercase tracking-[0.4em] text-white">Studio Q&A</Link>
+          <Link href="/contact" prefetch={false} onClick={closeMobileMenu} className="text-[11px] uppercase tracking-[0.4em] text-[#B08038] font-semibold">Contact</Link>
           
           <hr className="w-12 border-white/20 my-4" />
 
@@ -199,6 +201,7 @@ export default function Navbar() {
 
             <Link href="/match-inspiration" prefetch={false} className="text-[10px] uppercase tracking-[0.4em] text-[#c2bfb6] hover:text-[#B08038] transition-colors whitespace-nowrap">Match Inspiration</Link>
             <Link href="/support/studio-qa" prefetch={false} className="text-[10px] uppercase tracking-[0.4em] text-[#c2bfb6] hover:text-[#B08038] transition-colors whitespace-nowrap">Studio Q&A</Link>
+            <Link href="/contact" prefetch={false} className="text-[10px] uppercase tracking-[0.4em] text-[#c2bfb6] hover:text-[#B08038] transition-colors whitespace-nowrap">Contact</Link>
           </div>
 
           <div className="flex-1 flex items-center justify-end space-x-4 lg:space-x-6">

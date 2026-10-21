@@ -129,6 +129,7 @@ export default function Footer() {
             <h2 className="text-s font-bold uppercase tracking-[0.2em] text-[#B08038] mb-8">Contact Us</h2>
             {/* Links - Set to 12px */}
             <ul className="space-y-4 text-[12px] text-[#c2bfb6] font-light tracking-wide mb-6">
+              <li><Link href="/contact" prefetch={false} className="text-[#B08038] hover:text-white transition-colors font-medium">Get In Touch (ติดต่อเรา)</Link></li>
               <li><Link href="/contact/showrooms" prefetch={false} className= "text-[#c2bfb6] hover:text-[#B08038] transition-colors">Showrooms</Link></li>
               <li><Link href="/contact/location" prefetch={false} className="text-[#c2bfb6] hover:text-[#B08038] transition-colors">Location</Link></li>
             </ul>
