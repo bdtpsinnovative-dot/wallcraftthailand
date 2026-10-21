@@ -2,13 +2,6 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { createClient } from '@supabase/supabase-js';
-
-const CENTRAL_SUPABASE_URL =
-  process.env.NEXT_PUBLIC_CENTRAL_SUPABASE_URL || 'https://gshppxgvdrmbfcxsxeph.supabase.co';
-const CENTRAL_SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_CENTRAL_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzaHBweGd2ZHJtYmZjeHN4ZXBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwMjQzODAsImV4cCI6MjEwNzYwMDM4MH0.lhpLOeb7oY0e-ZCIgSBgzHfPAgAzK8eqFgUPg9te8XM';
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -38,26 +31,18 @@ export default function ContactPage() {
         return;
       }
 
-      const nameParts = formData.name.trim().split(/\s+/);
-      const firstName = nameParts[0];
-      const lastName = nameParts.slice(1).join(' ') || '-';
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
 
-      const supabase = createClient(CENTRAL_SUPABASE_URL, CENTRAL_SUPABASE_ANON_KEY);
-      const { error: insertError } = await supabase
-        .from('contact_inquiries')
-        .insert({
-          first_name: firstName,
-          last_name: lastName,
-          phone: formData.phone.trim(),
-          email: formData.email.trim(),
-          message: formData.message.trim(),
-          source: 'wallcraft',
-          status: 'new',
-        });
+      const data = await res.json();
 
-      if (insertError) {
-        console.error('Supabase insert error:', insertError);
-        setErrorMsg('เกิดข้อผิดพลาดในการส่งข้อความ กรุณาลองใหม่อีกครั้ง');
+      if (!res.ok || !data.success) {
+        setErrorMsg(data.error || 'เกิดข้อผิดพลาดในการส่งข้อความ กรุณาลองใหม่อีกครั้ง');
       } else {
         setSubmitted(true);
         setFormData({ name: '', email: '', phone: '', message: '' });
