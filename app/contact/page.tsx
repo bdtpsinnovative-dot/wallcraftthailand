@@ -2,7 +2,13 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { submitWallcraftContact } from '@/app/actions/contact';
+import { createClient } from '@supabase/supabase-js';
+
+const CENTRAL_SUPABASE_URL =
+  process.env.NEXT_PUBLIC_CENTRAL_SUPABASE_URL || 'https://gshppxgvdrmbfcxsxeph.supabase.co';
+const CENTRAL_SUPABASE_ANON_KEY =
+  process.env.NEXT_PUBLIC_CENTRAL_SUPABASE_ANON_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzaHBweGd2ZHJtYmZjeHN4ZXBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwMjQzODAsImV4cCI6MjEwNzYwMDM4MH0.lhpLOeb7oY0e-ZCIgSBgzHfPAgAzK8eqFgUPg9te8XM';
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -21,14 +27,43 @@ export default function ContactPage() {
     setErrorMsg(null);
 
     try {
-      const res = await submitWallcraftContact(formData);
-      if (res.success) {
+      if (!formData.name.trim()) {
+        setErrorMsg('กรุณากรอกชื่อผู้ติดต่อ');
+        setSubmitting(false);
+        return;
+      }
+      if (!formData.phone.trim() && !formData.email.trim()) {
+        setErrorMsg('กรุณากรอกเบอร์โทรหรืออีเมล');
+        setSubmitting(false);
+        return;
+      }
+
+      const nameParts = formData.name.trim().split(/\s+/);
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ') || '-';
+
+      const supabase = createClient(CENTRAL_SUPABASE_URL, CENTRAL_SUPABASE_ANON_KEY);
+      const { error: insertError } = await supabase
+        .from('contact_inquiries')
+        .insert({
+          first_name: firstName,
+          last_name: lastName,
+          phone: formData.phone.trim(),
+          email: formData.email.trim(),
+          message: formData.message.trim(),
+          source: 'wallcraft',
+          status: 'new',
+        });
+
+      if (insertError) {
+        console.error('Supabase insert error:', insertError);
+        setErrorMsg('เกิดข้อผิดพลาดในการส่งข้อความ กรุณาลองใหม่อีกครั้ง');
+      } else {
         setSubmitted(true);
         setFormData({ name: '', email: '', phone: '', message: '' });
-      } else {
-        setErrorMsg(res.error || 'เกิดข้อผิดพลาดในการส่งข้อความ');
       }
-    } catch {
+    } catch (err: any) {
+      console.error('Network error submitting contact inquiry:', err);
       setErrorMsg('ไม่สามารถเชื่อมต่อได้ กรุณาลองใหม่อีกครั้ง');
     } finally {
       setSubmitting(false);
