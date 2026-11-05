@@ -42,7 +42,31 @@ export const metadata: Metadata = {
   description: "Wallcraft (วอลล์คราฟท์) ศูนย์รวมสินค้าผนัง ผนังตกแต่งบ้าน และระแนงไม้คุณภาพสูง ดีไซน์ทันสมัย เปลี่ยนบ้านและห้องของคุณให้สวยหรูตรงใจ",
   
   // ✅ 3. เพิ่ม Keywords เน้นๆ ให้ Google หาเจอแน่นอน
-  keywords: ["wallcraft", "wallcraftthailand", "วอลล์คราฟท์", "ผนังตกแต่งบ้าน", "ระแนงไม้", "สินค้าผนัง", "ตกแต่งภายใน", "วัสดุตกแต่ง", "ระแนงไม้พรีเมียม"],
+  keywords: [
+    "wallcraft", 
+    "wallcraft thailand", 
+    "wallcraftthailand", 
+    "วอลล์คราฟท์", 
+    "วอลล์คราฟต์", 
+    "ผนังตกแต่งบ้าน", 
+    "ระแนงไม้", 
+    "สินค้าผนัง", 
+    "แผ่นตกแต่งผนัง", 
+    "ผนังกันเสียง", 
+    "ตกแต่งภายใน", 
+    "วัสดุตกแต่ง", 
+    "ระแนงไม้พรีเมียม"
+  ],
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
   
   // ✅ 3. ตั้งค่าไอคอนสำหรับ Browser แท็บ และ iPhone (Apple Touch Icon)
   icons: {
@@ -78,6 +102,59 @@ export default function RootLayout({
   return (
     <html lang="th" className={`${prompt.variable} ${notoSansThai.variable}`}>
       <body className={`antialiased noise font-sans text-[#808080]`}>
+        {/* JSON-LD Schema for Brand Entity (Organization + WebSite + Store) */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify([
+              {
+                "@context": "https://schema.org",
+                "@type": ["Organization", "Store"],
+                "name": "Wallcraft Thailand",
+                "alternateName": [
+                  "Wallcraft",
+                  "วอลล์คราฟท์",
+                  "วอลล์คราฟต์",
+                  "วอลล์คราฟท์ ไทยแลนด์",
+                  "Wallcraft ผนังตกแต่งบ้าน",
+                  "Wallcraft สินค้าผนัง"
+                ],
+                "url": "https://wallcraftthailand.com",
+                "logo": "https://wallcraftthailand.com/og-image.png",
+                "description": "Wallcraft (วอลล์คราฟท์) ศูนย์รวมสินค้าผนัง ผนังตกแต่งบ้าน และระแนงไม้คุณภาพสูง ดีไซน์ทันสมัย เปลี่ยนบ้านและห้องของคุณให้สวยหรูตรงใจ",
+                "address": {
+                  "@type": "PostalAddress",
+                  "streetAddress": "332 ประดิษฐ์มนูธรรม 3",
+                  "addressLocality": "วังทองหลาง",
+                  "addressRegion": "กรุงเทพมหานคร",
+                  "postalCode": "10310",
+                  "addressCountry": "TH"
+                },
+                "sameAs": [
+                  "https://www.facebook.com/WallcraftThailand"
+                ],
+                "priceRange": "$"
+              },
+              {
+                "@context": "https://schema.org",
+                "@type": "WebSite",
+                "name": "Wallcraft Thailand",
+                "alternateName": "Wallcraft",
+                "url": "https://wallcraftthailand.com",
+                "description": "ศูนย์รวมสินค้าผนัง ผนังตกแต่งบ้าน และระแนงไม้พรีเมียม",
+                "inLanguage": ["th", "en"],
+                "potentialAction": {
+                  "@type": "SearchAction",
+                  "target": {
+                    "@type": "EntryPoint",
+                    "urlTemplate": "https://wallcraftthailand.com/search?q={search_term_string}"
+                  },
+                  "query-input": "required name=search_term_string"
+                }
+              }
+            ])
+          }}
+        />
         <NextTopLoader 
           color="#c6a87c"          
           initialPosition={0.08}   

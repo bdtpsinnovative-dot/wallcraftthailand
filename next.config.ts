@@ -17,6 +17,13 @@ const nextConfig: NextConfig = {
   
   async redirects() {
     return [
+      // Redirect www to non-www for clean SEO canonicalization
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.wallcraftthailand.com' }],
+        destination: 'https://wallcraftthailand.com/:path*',
+        permanent: true,
+      },
       // 1. ดักคนที่พิมพ์ตก s หรือบอทที่เข้าลิงก์เก่า -> โยนไปหน้าใหม่ที่มี s (ตรงตัวเป๊ะ!)
       {
         source: '/collection/:path*',

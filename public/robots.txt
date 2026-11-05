@@ -20,4 +20,4 @@ User-agent: PetalBot
 User-agent: Rogerbot
 Disallow: /
 
-Sitemap: https://www.wallcraftthailand.com/sitemap.xml
+Sitemap: https://wallcraftthailand.com/sitemap.xml

@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next'
 import { supabase } from '@/app/lib/supabase'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://www.wallcraftthailand.com'
+  const baseUrl = 'https://wallcraftthailand.com'
 
   // 1. หน้าหลักและหน้าใหม่ที่เพิ่งสร้าง (Static Routes)
   const staticPaths = [
