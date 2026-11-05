@@ -28,7 +28,7 @@ const notoSansThai = Noto_Sans_Thai({
 // ✅ อัปเดต Metadata จัดเต็มคีย์เวิร์ด "ผนังตกแต่งบ้าน" และ "สินค้าผนัง"
 export const metadata: Metadata = {
   // ✅ 1. เพิ่มบรรทัดนี้ เพื่อตั้งค่า Domain หลักของเว็บ (ใส่โดเมนจริงของนายลงไป)
-  metadataBase: new URL('https://wallcraftthailand.com'), 
+  metadataBase: new URL('https://www.wallcraftthailand.com'), 
   
   // ✅ 2. เพิ่ม alternates และ canonical เพื่อบอก Google ว่านี่คือหน้าหลัก (Master Copy)
   alternates: {
@@ -119,8 +119,8 @@ export default function RootLayout({
                   "Wallcraft ผนังตกแต่งบ้าน",
                   "Wallcraft สินค้าผนัง"
                 ],
-                "url": "https://wallcraftthailand.com",
-                "logo": "https://wallcraftthailand.com/og-image.png",
+                "url": "https://www.wallcraftthailand.com",
+                "logo": "https://www.wallcraftthailand.com/og-image.png",
                 "description": "Wallcraft (วอลล์คราฟท์) ศูนย์รวมสินค้าผนัง ผนังตกแต่งบ้าน และระแนงไม้คุณภาพสูง ดีไซน์ทันสมัย เปลี่ยนบ้านและห้องของคุณให้สวยหรูตรงใจ",
                 "address": {
                   "@type": "PostalAddress",
@@ -140,14 +140,14 @@ export default function RootLayout({
                 "@type": "WebSite",
                 "name": "Wallcraft Thailand",
                 "alternateName": "Wallcraft",
-                "url": "https://wallcraftthailand.com",
+                "url": "https://www.wallcraftthailand.com",
                 "description": "ศูนย์รวมสินค้าผนัง ผนังตกแต่งบ้าน และระแนงไม้พรีเมียม",
                 "inLanguage": ["th", "en"],
                 "potentialAction": {
                   "@type": "SearchAction",
                   "target": {
                     "@type": "EntryPoint",
-                    "urlTemplate": "https://wallcraftthailand.com/search?q={search_term_string}"
+                    "urlTemplate": "https://www.wallcraftthailand.com/search?q={search_term_string}"
                   },
                   "query-input": "required name=search_term_string"
                 }
