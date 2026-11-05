@@ -103,7 +103,7 @@ export default function MatchInspirationPage() {
       </div>
 
       {/* Moodboard Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 max-w-[1200px] mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
         {items.map((item, i) => (
           <Link key={i} href={`/product/${item.id}`} prefetch={false} className="group cursor-pointer block">
             <div className="aspect-square bg-zinc-900 border border-white/5 overflow-hidden mb-6 relative">
@@ -126,7 +126,7 @@ export default function MatchInspirationPage() {
         ))}
       </div>
 
-      <div className="mt-20 p-12 border border-white/5 bg-zinc-900/20 text-center rounded-sm max-w-[1200px] mx-auto">
+      <div className="mt-20 p-12 border border-white/5 bg-zinc-900/20 text-center rounded-sm">
         <p className="text-zinc-400 italic mb-4">"Interior design is a business of trust."</p>
         <Link href="/" prefetch={false} className="text-[#c6a87c] text-[10px] tracking-[0.3em] uppercase hover:underline">
           Back to Home
