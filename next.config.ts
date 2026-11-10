@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
     return [
       // Redirect non-www to www for clean SEO canonicalization (matching tunnel & mobile apps)
       {
-        source: '/((?!api).*)*',
+        source: '/:path*',
         has: [{ type: 'host', value: 'wallcraftthailand.com' }],
         destination: 'https://www.wallcraftthailand.com/:path*',
         permanent: true,
