@@ -11,6 +11,17 @@ const NON_CACHEABLE_PATH_PREFIXES = [
   '/search',
 ]
 
+// Shared read-only GET APIs safe to cache at Cloudflare Edge for 1 year
+// (purged automatically via /api/revalidate on product / app-update / master-data changes)
+const CACHEABLE_PUBLIC_API_PATHS = new Set([
+  '/api/v1/products',
+  '/api/v1/products/collections',
+  '/api/v1/categories',
+  '/api/v1/project-types',
+  '/api/v1/customer-types',
+  '/api/v1/check-update',
+])
+
 function corsHeaders(request: NextRequest): Headers {
   const origin = request.headers.get('origin') ?? ''
   const isFlutterWebDevServer = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)
@@ -57,7 +68,14 @@ export function middleware(request: NextRequest) {
     }
 
     const res = NextResponse.next({ headers })
-    res.headers.set('Cloudflare-CDN-Cache-Control', 'no-store')
+    const isCacheablePublicApi =
+      (request.method === 'GET' || request.method === 'HEAD') &&
+      CACHEABLE_PUBLIC_API_PATHS.has(request.nextUrl.pathname)
+
+    res.headers.set(
+      'Cloudflare-CDN-Cache-Control',
+      isCacheablePublicApi ? CLOUDFLARE_PUBLIC_CACHE_HEADER : 'no-store'
+    )
     return res
   }
 

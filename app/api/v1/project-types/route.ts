@@ -1,25 +1,24 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import {
+  CLOUDFLARE_PUBLIC_API_HEADERS,
+  getCachedProjectTypes,
+} from '@/app/lib/public-cache';
 
-export const dynamic = 'force-dynamic';
-
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+export const revalidate = 31536000;
 
 export async function GET() {
   try {
-    // 🌟 ดึงข้อมูลจากตาราง project_types ที่เราเพิ่งรัน SQL ไป
-    const { data, error } = await supabase
-      .from('project_types')
-      .select('*')
-      .order('name', { ascending: true });
+    const data = await getCachedProjectTypes();
 
-    if (error) throw error;
-
-    return NextResponse.json({ data });
+    return NextResponse.json(
+      { data },
+      { headers: CLOUDFLARE_PUBLIC_API_HEADERS }
+    );
   } catch (error: any) {
-    console.error("API Error (v1/project-types):", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('API Error (v1/project-types):', error.message);
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+    );
   }
 }

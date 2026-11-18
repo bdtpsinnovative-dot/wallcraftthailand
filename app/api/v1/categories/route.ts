@@ -1,28 +1,25 @@
-// app/api/categories/route.ts
-import { createClient } from '@supabase/supabase-js';
+// app/api/v1/categories/route.ts
 import { NextResponse } from 'next/server';
+import {
+  CLOUDFLARE_PUBLIC_API_HEADERS,
+  getCachedCategories,
+} from '@/app/lib/public-cache';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+export const revalidate = 31536000;
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    // 🌟 ดึงข้อมูลจากตาราง product_categories
-    const { data, error } = await supabase
-      .from('product_categories')
-      .select('id, name')
-      .order('name', { ascending: true }); // เรียงตามชื่อ หรือจะเรียงตาม created_at ก็ได้
+    const data = await getCachedCategories();
 
-    if (error) throw error;
-
-    return NextResponse.json({ data });
-
+    return NextResponse.json(
+      { data },
+      { headers: CLOUDFLARE_PUBLIC_API_HEADERS }
+    );
   } catch (error: any) {
     console.error('API Error Fetching Categories:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+    );
   }
 }

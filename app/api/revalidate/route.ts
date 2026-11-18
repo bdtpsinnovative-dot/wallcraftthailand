@@ -5,16 +5,11 @@ import {
   CACHE_TAGS,
   collectionCacheTag,
   productCacheTag,
+  purgeCloudflareZoneCache,
 } from '@/app/lib/public-cache';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-interface CloudflarePurgeStatus {
-  purged: boolean;
-  skipped?: boolean;
-  error?: string;
-}
 
 function timingSafeMatch(provided: string, expected: string): boolean {
   const providedBuf = Buffer.from(provided);
@@ -48,63 +43,6 @@ function toCollectionSlug(name: string): string {
   if (slug === 'terra-stone') return 'tarra-stone';
   if (slug === 'geo-form') return 'geoform';
   return slug;
-}
-
-async function purgeCloudflareEdgeCache(): Promise<CloudflarePurgeStatus> {
-  const zoneId = process.env.CLOUDFLARE_ZONE_ID?.trim();
-  const apiToken = process.env.CLOUDFLARE_API_TOKEN?.trim();
-
-  if (!zoneId || !apiToken) {
-    return {
-      purged: false,
-      skipped: true,
-      error: 'CLOUDFLARE_ZONE_ID or CLOUDFLARE_API_TOKEN not configured',
-    };
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    const res = await fetch(
-      `https://api.cloudflare.com/client/v4/zones/${encodeURIComponent(zoneId)}/purge_cache`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ purge_everything: true }),
-        cache: 'no-store',
-        signal: controller.signal,
-      }
-    );
-
-    clearTimeout(timeoutId);
-
-    const data = (await res.json().catch(() => ({}))) as {
-      success?: boolean;
-      errors?: Array<{ message?: string }>;
-    };
-
-    if (!res.ok || data.success === false) {
-      const cfMsg =
-        data.errors?.map((e) => e.message).filter(Boolean).join('; ') ||
-        `HTTP ${res.status}`;
-      return {
-        purged: false,
-        error: `Cloudflare Purge failed: ${cfMsg}`,
-      };
-    }
-
-    return { purged: true };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Network error';
-    return {
-      purged: false,
-      error: `Cloudflare Purge error: ${msg}`,
-    };
-  }
 }
 
 export async function POST(request: Request) {
@@ -158,11 +96,13 @@ export async function POST(request: Request) {
     }
   };
 
-  // 1. Purge all core product/catalog tags immediately on Vercel
+  // 1. Purge all core product/catalog/master/app-update tags immediately on Vercel
   expireTag(CACHE_TAGS.PRODUCTS);
   expireTag(CACHE_TAGS.COLLECTIONS);
   expireTag(CACHE_TAGS.INSPIRATION);
   expireTag(CACHE_TAGS.SITEMAP);
+  expireTag(CACHE_TAGS.MASTER_DATA);
+  expireTag(CACHE_TAGS.CHECK_UPDATE);
 
   // 2. Collect product IDs & collections (supports both Admin payload & Supabase Database Webhook payload)
   const productIds = new Set<string>();
@@ -218,15 +158,21 @@ export async function POST(request: Request) {
     }
   }
 
-  // 3. Purge full-page cached routes across the entire public site on Vercel
+  // 3. Purge full-page cached routes & cached shared mobile APIs on Vercel
   expirePath('/collections/[slug]', 'page');
   expirePath('/product/[id]', 'page');
   expirePath('/match-inspiration', 'page');
   expirePath('/sitemap.xml');
+  expirePath('/api/v1/products');
+  expirePath('/api/v1/products/collections');
+  expirePath('/api/v1/categories');
+  expirePath('/api/v1/project-types');
+  expirePath('/api/v1/customer-types');
+  expirePath('/api/v1/check-update');
   expirePath('/', 'layout');
 
-  // 4. Purge Cloudflare Edge Cache automatically (if CLOUDFLARE_ZONE_ID & CLOUDFLARE_API_TOKEN are set)
-  const cloudflare = await purgeCloudflareEdgeCache();
+  // 4. Purge Cloudflare Edge Cache automatically
+  const cloudflare = await purgeCloudflareZoneCache();
 
   return NextResponse.json(
     {
