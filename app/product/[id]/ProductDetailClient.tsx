@@ -69,6 +69,18 @@ export default function ProductDetailClient({ product, variants, initialStyle }:
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(firstVariant);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Read ?style= from URL on client so /product/[id] remains 100% full-page cached on CDN
+  useEffect(() => {
+    if (typeof window === 'undefined' || initialStyle) return;
+    const styleParam = new URLSearchParams(window.location.search).get('style');
+    if (!styleParam) return;
+    const foundPattern = patterns.find((p) => p === styleParam);
+    if (foundPattern) {
+      setSelectedPattern(foundPattern);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // useEffect ต่างๆ ปล่อยไว้เหมือนเดิมครับ
   useEffect(() => {
     if (selectedPattern && groupedData[selectedPattern]) {

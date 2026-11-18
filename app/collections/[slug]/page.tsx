@@ -1,39 +1,13 @@
 import React from 'react';
 import Link from 'next/link';
-import { unstable_cache } from 'next/cache';
 
-import { supabase } from '@/app/lib/supabase';
 import VariantCarousel from '@/app/components/VariantCarousel';
+import { getCachedCollectionProducts } from '@/app/lib/public-cache';
 
-// Cache catalog responses indefinitely so repeated navigation does not query Supabase every time.
-// Keep the public catalog page cached until a deployment or explicit revalidation.
-export const revalidate = false;
-
-const getCachedCollectionProducts = unstable_cache(
-  async (collectionName: string) => {
-    if (!supabase) {
-      return { products: null, error: 'Supabase is not configured.' };
-    }
-
-    const { data, error } = await supabase
-      .from('products')
-      .select(`
-        *,
-        product_variants (
-          id, sku, color, film, pattern, variant_image, description
-        )
-      `)
-      .ilike('collection', `%${collectionName}%`)
-      .order('id', { ascending: true });
-
-    return {
-      products: data,
-      error: error?.message ?? null,
-    };
-  },
-  ['public-collection-products-v1'],
-  { revalidate: false }
-);
+// Full-page ISR cache for 1 year (31,536,000 seconds).
+// Cleared on-demand via POST /api/revalidate whenever products are added/updated/deleted in Admin.
+export const revalidate = 31536000;
+export const dynamicParams = true;
 
 const SLUG_TO_COLLECTION: Record<string, string> = {
   "solid-panel": "Solid Panel", 

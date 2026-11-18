@@ -1,57 +1,30 @@
-import { supabase } from '@/app/lib/supabase';
-import { unstable_cache } from 'next/cache';
-// 1. เพิ่ม Import notFound
-import { notFound } from 'next/navigation'; 
-// 2. เพิ่ม Import ProductDetailClient (ตรวจสอบ Path ด้านล่างนี้ให้ตรงกับโฟลเดอร์งานจริงของคุณด้วยนะครับ)
-import ProductDetailClient from './ProductDetailClient'; 
+import { notFound } from 'next/navigation';
+import ProductDetailClient from './ProductDetailClient';
+import { getCachedProduct } from '@/app/lib/public-cache';
 
-// Cache product detail responses indefinitely to reduce repeated Supabase queries.
-// Keep the public product page cached until a deployment or explicit revalidation.
-export const revalidate = false;
+// Full-page ISR cache for 1 year (31,536,000 seconds).
+// Cleared on-demand via POST /api/revalidate whenever products are added/updated/deleted in Admin.
+// Note: ?style= query param is handled on the client inside ProductDetailClient so the entire HTML page stays cached on CDN.
+export const revalidate = 31536000;
+export const dynamicParams = true;
 
-const getCachedProduct = unstable_cache(
-  async (productId: string) => {
-    if (!supabase) {
-      return { product: null, error: 'Supabase is not configured.' };
-    }
-
-    const { data, error } = await supabase
-      .from('products')
-      .select('*, product_variants (*)')
-      .eq('id', productId)
-      .single();
-
-    return {
-      product: data,
-      error: error?.message ?? null,
-    };
-  },
-  ['public-product-detail-v1'],
-  { revalidate: false }
-);
-
-// 3. ประกาศ Type สำหรับ PageProps (รองรับ Next.js เวอร์ชันใหม่ที่ params เป็น Promise)
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ style?: string }>;
 };
 
-export default async function ProductPage({ params, searchParams }: PageProps) {
+export default async function ProductPage({ params }: PageProps) {
   const { id } = await params;
-  const { style } = await searchParams;
 
-  // เพิ่ม Error Handling ให้อุ่นใจขึ้น
   try {
     const { product, error } = await getCachedProduct(id);
 
     if (error || !product) return notFound();
 
     return (
-      <main className="min-h-screen pt-20"> 
-        <ProductDetailClient 
-          product={product} 
-          variants={product.product_variants || []} 
-          initialStyle={style ? decodeURIComponent(style) : null}
+      <main className="min-h-screen pt-20">
+        <ProductDetailClient
+          product={product}
+          variants={product.product_variants || []}
         />
       </main>
     );

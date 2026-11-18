@@ -1,59 +1,50 @@
-# Web page caching
+# Web Page Caching (Cloudflare Edge 1-Year + Vercel Full-Page ISR + Auto-Purge)
 
-## Scope
+## Architecture (2-Layer Shield)
 
-This caching configuration applies only to the public web pages:
+```
+Visitor -> Cloudflare Edge (Bangkok BKK, 1-Year HTML Cache)
+              |-- HIT  --> Served in ~15ms (0 Vercel requests, 0 Supabase queries)
+              |-- MISS --> Vercel Edge ISR (Singapore sin1, 1-Year Cache)
+                              |-- HIT  --> Served from Vercel (0 Supabase queries)
+                              |-- MISS --> Queries Supabase -> Caches at Vercel & Cloudflare for 1 year
+```
 
-- /collections/[slug]
-- /product/[id]
+### Safe Exclusion Rules (NEVER Cached at Cloudflare)
+- `/api/*` (Mobile apps `hello_app`, `sale_ops_app`, `hr_management`, contact, revalidate)
+- `/login`, `/register`, `/profile`, `/search`
+- Non-GET requests (`POST`, `PUT`, `PATCH`, `DELETE`)
+- Next.js App Router RSC/Prefetch payloads (`RSC: 1`, `Next-Router-Prefetch: 1`, `?_rsc=...`) — prevents RSC cache poisoning on Cloudflare Free plan!
 
-It does not change, cache, or disable any route under /api/*, and it does not
-change the mobile application's API behavior.
+All exclusions are enforced automatically via `Cloudflare-CDN-Cache-Control: no-store` in [middleware.ts](middleware.ts).
 
-## How it works
+## Automatic Cache Clearing (Vercel + Cloudflare Together)
 
-Both public page routes use the following Next.js route setting, and their
-Supabase queries use a shared indefinite data cache:
+When Admin imports, edits, or deletes products in `/import-products`, `/manage-products`, or `/manage-products/[id]`:
+1. Admin calls `POST https://www.wallcraftthailand.com/api/revalidate` with `x-revalidate-secret`.
+2. `/api/revalidate` immediately purges:
+   - Vercel Next.js Data Cache tags (`{ expire: 0 }`) and Full-Page ISR routes
+   - Cloudflare Edge Cache (`POST /zones/{CLOUDFLARE_ZONE_ID}/purge_cache` with `{ purge_everything: true }`)
 
-    export const revalidate = false;
+## Required Environment Variables (Never prefix with `NEXT_PUBLIC_`)
 
-This tells Next.js not to revalidate these cached pages on a timer. The first
-request for a specific URL may query Supabase and render the page. Later
-requests for the same URL can use the shared server/platform cache instead of
-running the same page query against Supabase again.
+1. **`wallcraft-next`** (Vercel Project `wallcraftthailand` & `.env.local`):
+   - `REVALIDATE_SECRET` — shared secret string chosen by you
+   - `CLOUDFLARE_ZONE_ID` — Cloudflare Zone ID for `wallcraftthailand.com`
+   - `CLOUDFLARE_API_TOKEN` — Cloudflare API Token with permission **Zone → Cache Purge → Purge**
+2. **`adminwallcraft`** (Vercel Project `adminwallcraft` & `.env`):
+   - `REVALIDATE_SECRET` — same secret string as above
+   - `WALLCRAFT_WEB_URL` *(optional; defaults to `https://www.wallcraftthailand.com`)*
 
-The product route accepts a style query string and remains a dynamic route at
-the page-rendering level. The important expensive Supabase result is cached
-indefinitely by URL argument, so this does not depend on the browser cache.
+## Cloudflare Dashboard Setup Checklist
 
-Each URL has its own cache entry. For example:
-
-- /collections/fabric is separate from /collections/solid-panel
-- /product/123 is separate from /product/456
-
-prefetch={false} is also enabled on the site's Link components. The browser
-will fetch a page when the visitor clicks it, rather than prefetching every
-visible product link while scrolling.
-
-## Benefits
-
-- Lower repeated Supabase reads from public catalog pages
-- Fewer server-rendered page requests and lower CPU usage
-- Fewer repeated Supabase queries even when a dynamic page is rendered
-- Fewer unnecessary RSC requests while scrolling
-- Faster repeat visits after the page has been cached
-
-## Trade-offs
-
-- Product or catalog changes may not appear immediately
-- The cache is not guaranteed to live forever: Vercel or Next.js may evict it,
-  and a deployment can create or invalidate cache entries
-- The first request after a cache miss can still be slower
-- Pages that depend on per-user data must not use this public cache model
-
-## Updating product data
-
-When product or catalog data changes, deploy the project again. To guarantee a
-fresh data cache, change the cache-key suffix from v1 to v2 in the relevant
-page file before deploying. If instant updates are needed later, add explicit
-revalidatePath() or tag-based revalidation to the admin update workflow.
+1. **SSL/TLS → Overview**: Set encryption mode to **Full (strict)** *(must be done BEFORE turning on orange cloud!)*.
+2. **Caching → Cache Rules**: Create 2 rules (in this order):
+   - **Rule 1 (`Bypass Dynamic & API`)**:
+     - Expression: `(starts_with(http.request.uri.path, "/api/")) or (starts_with(http.request.uri.path, "/login")) or (starts_with(http.request.uri.path, "/register")) or (starts_with(http.request.uri.path, "/profile")) or (starts_with(http.request.uri.path, "/search")) or (http.request.method ne "GET") or (any(http.request.headers["rsc"][*] eq "1")) or (any(http.request.headers["next-router-prefetch"][*] eq "1"))`
+     - Action: **Bypass cache**
+   - **Rule 2 (`Cache Public Wallcraft HTML 1 Year`)**:
+     - Expression: `(http.host eq "www.wallcraftthailand.com" or http.host eq "wallcraftthailand.com") and (http.request.method eq "GET")`
+     - Cache eligibility: **Eligible for cache**
+     - Edge TTL: **Use cache-control header if present, bypass cache if not** *(reads our `Cloudflare-CDN-Cache-Control: public, max-age=31536000` header automatically!)*
+3. **DNS → Records**: Toggle Proxy status to **Proxied (Orange Cloud)** for `wallcraftthailand.com` and `www.wallcraftthailand.com`.
