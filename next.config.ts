@@ -4,8 +4,9 @@ const nextConfig: NextConfig = {
   typescript: { ignoreBuildErrors: true },
   experimental: {},
   productionBrowserSourceMaps: false,
-  
+
   images: {
+    unoptimized: true,
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       {
@@ -14,7 +15,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  
+
   async redirects() {
     return [
       // Redirect non-www to www for clean SEO canonicalization (matching tunnel & mobile apps)
@@ -28,12 +29,12 @@ const nextConfig: NextConfig = {
       {
         source: '/collection/:path*',
         destination: '/collections/:path*',
-        permanent: true, // รหัส 301 บอก Google ว่า "ย้ายบ้านถาวรแล้ว จำที่ใหม่ไว้นะ"
+        permanent: true,
       },
       // 2. ดักผีสินค้าเก่าพวก Pikachu, รองเท้าเด็ก (ที่โฟลเดอร์มี s) -> โยนกลับหน้าแรก
       {
         source: '/products/:path*',
-        destination: '/', 
+        destination: '/',
         permanent: true,
       },
       // 3. ดักพวก URL ขยะจากเว็บเก่า -> โยนกลับหน้าแรก
@@ -41,7 +42,7 @@ const nextConfig: NextConfig = {
         source: '/series/:path*/_tree.segment',
         destination: '/',
         permanent: true,
-      }
+      },
     ];
   },
 };
