@@ -96,13 +96,16 @@ export async function POST(request: Request) {
     }
   };
 
-  // 1. Purge all core product/catalog/master/app-update tags immediately on Vercel
+  // 1. Purge all core product/catalog/master/app-update/companies/projects/pool tags immediately on Vercel
   expireTag(CACHE_TAGS.PRODUCTS);
   expireTag(CACHE_TAGS.COLLECTIONS);
   expireTag(CACHE_TAGS.INSPIRATION);
   expireTag(CACHE_TAGS.SITEMAP);
   expireTag(CACHE_TAGS.MASTER_DATA);
   expireTag(CACHE_TAGS.CHECK_UPDATE);
+  expireTag(CACHE_TAGS.COMPANIES);
+  expireTag(CACHE_TAGS.PROJECTS);
+  expireTag(CACHE_TAGS.POOL_PROJECTS);
 
   // 2. Collect product IDs & collections (supports both Admin payload & Supabase Database Webhook payload)
   const productIds = new Set<string>();

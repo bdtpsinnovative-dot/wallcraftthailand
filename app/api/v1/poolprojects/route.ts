@@ -1,6 +1,8 @@
 // app/api/v1/poolprojects/route.ts
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
+import { CACHE_TAGS, getCachedPoolProjects } from '@/app/lib/public-cache';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -25,171 +27,51 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '150'); 
-    const scope = searchParams.get('scope') || 'all'; 
-    const searchKeyword = searchParams.get('search') || ''; 
-    
+    const page = parseInt(searchParams.get('page') || '1', 10) || 1;
+    const limit = parseInt(searchParams.get('limit') || '150', 10) || 150;
+    const scope = searchParams.get('scope') || 'all';
+    const searchKeyword = searchParams.get('search') || '';
+
     // ✅ รับค่า Filter ใหม่ที่ส่งมาจาก Flutter
-    const categories = searchParams.get('categories');
-    const sales = searchParams.get('sales');
-    const types = searchParams.get('types');
-    const areas = searchParams.get('areas');
-    const dateRange = searchParams.get('dateRange');
+    const categories = searchParams.get('categories') || '';
+    const sales = searchParams.get('sales') || '';
+    const types = searchParams.get('types') || '';
+    const areas = searchParams.get('areas') || '';
+    const dateRange = searchParams.get('dateRange') || '';
     const isImportant = searchParams.get('isImportant') === 'true';
 
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
-
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('team_id')
-      .eq('id', user.id)
-      .single();
-
-    const selectCategories = categories ? 'product_categories!inner(name)' : 'product_categories(name)';
-    const selectProjectTypes = types ? 'project_types!inner(name)' : 'project_types(name)';
-    const selectProfiles = sales ? 'profiles!inner(full_name, teams(team_name))' : 'profiles(full_name, teams(team_name))';
-
-    let query = supabase
-      .from('order_items')
-      .select(`
-        *,
-        ${selectCategories},
-        order_item_projects!inner(
-          id, 
-          area_sqm, 
-          project_name,
-          is_important,
-          project_type_id,
-          queue_level,
-          project_year,
-          ${selectProjectTypes},
-          account_developer, 
-          contact_developer,
-          account_architecture, 
-          contact_architecture,
-          account_interior, 
-          contact_interior,
-          account_contractor, 
-          contact_contractor,
-          is_deleted
-        ),
-        orders!inner(
-          id, 
-          created_at, 
-          customer_name, 
-          phone,
-          customer_types(name),
-          is_synced, 
-          audit_log, 
-          admin_edits,
-          user_id, 
-          team_id,
-          ${selectProfiles},
-          companies(name, customer_types(name))
-        )
-      `, { count: 'exact' }) 
-      .eq('order_item_projects.is_deleted', false) 
-      .order('created_at', { ascending: false });
-
-    if (scope === 'mine') {
-      query = query.eq('orders.user_id', user.id); 
-    } else if (scope === 'team' && profileData?.team_id) {
-      query = query.eq('orders.team_id', profileData.team_id); 
+    // Query profile team_id ONLY when scope=team (avoid extra DB call for scope=all or scope=mine)
+    let teamId = '';
+    if (scope === 'team') {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('team_id')
+        .eq('id', user.id)
+        .single();
+      teamId = profileData?.team_id ? String(profileData.team_id) : '';
     }
 
-    if (searchKeyword.trim() !== '') {
-      const kw = searchKeyword.trim();
-      query = query.or(
-        `project_name.ilike.%${kw}%,account_developer.ilike.%${kw}%,account_architecture.ilike.%${kw}%,account_interior.ilike.%${kw}%,account_contractor.ilike.%${kw}%`,
-        { foreignTable: 'order_item_projects' }
-      );
-    }
-
-    if (categories) {
-      query = query.in('product_categories.name', categories.split(','));
-    }
-
-    if (sales) {
-      query = query.in('orders.profiles.full_name', sales.split(','));
-    }
-
-    if (types) {
-      query = query.in('order_item_projects.project_types.name', types.split(','));
-    }
-
-    if (isImportant) {
-      query = query.eq('order_item_projects.is_important', true);
-    }
-
-    if (dateRange) {
-      const now = new Date();
-      let daysToSubtract = 0;
-      
-      if (dateRange === '7 วันล่าสุด') daysToSubtract = 7;
-      else if (dateRange === '14 วันล่าสุด') daysToSubtract = 14;
-      else if (dateRange === '30 วันล่าสุด') daysToSubtract = 30;
-
-      if (daysToSubtract > 0) {
-        now.setDate(now.getDate() - daysToSubtract);
-        query = query.gte('orders.created_at', now.toISOString());
-      }
-    }
-
-    if (areas) {
-      const areaArray = areas.split(',');
-      let orConditions: string[] = [];
-
-      for (const range of areaArray) {
-        if (range === 'น้อยกว่า 50 sq.m.') orConditions.push(`area_sqm.lt.50`);
-        else if (range === '50 - 200 sq.m.') orConditions.push(`and(area_sqm.gte.50,area_sqm.lte.200)`);
-        else if (range === '201 - 500 sq.m.') orConditions.push(`and(area_sqm.gte.201,area_sqm.lte.500)`);
-        else if (range === 'มากกว่า 500 sq.m.') orConditions.push(`area_sqm.gt.500`);
-      }
-
-      if (orConditions.length > 0) {
-        query = query.or(orConditions.join(','), { foreignTable: 'order_item_projects' });
-      }
-    }
-
-    const { data, count, error } = await query.range(from, to);
-
-    if (error) throw error;
-
-    const normalizedData = (data || []).map((item: any) => {
-      if (item.orders) {
-        const projects = Array.isArray(item.order_item_projects) ? item.order_item_projects : [];
-        let fallbackComp = '';
-        for (const p of projects) {
-          fallbackComp = p.account_developer || p.account_architecture || p.account_interior || p.account_contractor || '';
-          if (fallbackComp) break;
-        }
-
-        const existingCompanyName = item.orders.companies?.name || '';
-        const effectiveCompanyName = existingCompanyName || fallbackComp;
-        const customerName = (item.orders.customer_name || '').trim();
-
-        // Fallback: ถ้าไม่มีชื่อบริษัท ให้ใช้ชื่อลูกค้า/ผู้ติดต่อ
-        const finalName = effectiveCompanyName || customerName;
-
-        if (finalName) {
-          item.orders.companies = {
-            ...(item.orders.companies || {}),
-            name: finalName,
-          };
-        }
-      }
-      return item;
-    });
-    
-    return NextResponse.json({ 
-      data: normalizedData, 
-      total: count,
-      page: page,
-      limit: limit
+    const result = await getCachedPoolProjects({
+      page,
+      limit,
+      scope,
+      userId: user.id,
+      teamId,
+      searchKeyword,
+      categories,
+      sales,
+      types,
+      areas,
+      dateRange,
+      isImportant,
     });
 
+    return NextResponse.json(result, {
+      headers: {
+        'Cache-Control': 'private, no-store',
+        'Cloudflare-CDN-Cache-Control': 'no-store',
+      },
+    });
   } catch (error: any) {
     console.error('API Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -372,6 +254,9 @@ export async function PATCH(request: Request) {
     if (detailTags.length === 0) {
       return NextResponse.json({ message: 'ไม่มีข้อมูลเปลี่ยนแปลง' });
     }
+
+    // Auto-purge Pool server cache immediately on edit
+    revalidateTag(CACHE_TAGS.POOL_PROJECTS, { expire: 0 });
 
     return NextResponse.json({ 
       message: 'อัปเดตข้อมูลและบันทึกประวัติสำเร็จ',

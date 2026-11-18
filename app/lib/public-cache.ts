@@ -12,6 +12,9 @@ export const CACHE_TAGS = {
   SITEMAP: 'wallcraft-sitemap',
   MASTER_DATA: 'wallcraft-master-data',
   CHECK_UPDATE: 'wallcraft-check-update',
+  COMPANIES: 'wallcraft-companies',
+  PROJECTS: 'wallcraft-projects',
+  POOL_PROJECTS: 'wallcraft-pool-projects',
 } as const;
 
 export const CLOUDFLARE_PUBLIC_API_HEADERS: Record<string, string> = {
@@ -443,4 +446,367 @@ export async function purgeCloudflareZoneCache(): Promise<{
       error: `Cloudflare Purge error: ${msg}`,
     };
   }
+}
+
+// ============================================================
+// Companies, Projects, New Record & Pool Server Caches (1 Year)
+// ============================================================
+
+export async function getCachedCompanies(params: { q: string; typeId: string }) {
+  const keyParts = [
+    'mobile-api-companies-v1',
+    `q:${params.q.trim().toLowerCase()}`,
+    `t:${params.typeId.trim()}`,
+  ];
+
+  const cachedFn = unstable_cache(
+    async () => {
+      const client = getServiceSupabase();
+      if (!client) throw new Error('Missing Supabase config');
+
+      let query = client.from('companies').select('id, name, customer_type_id');
+      if (params.q) query = query.ilike('name', `%${params.q}%`);
+      if (
+        params.typeId &&
+        params.typeId !== 'null' &&
+        params.typeId !== 'undefined'
+      ) {
+        query = query.eq('customer_type_id', params.typeId);
+      }
+
+      const { data, error } = await query
+        .order('name', { ascending: true })
+        .limit(50);
+
+      if (error) throw error;
+      return data || [];
+    },
+    keyParts,
+    {
+      revalidate: ONE_YEAR_SECONDS,
+      tags: [CACHE_TAGS.COMPANIES],
+    }
+  );
+
+  return cachedFn();
+}
+
+export const getCachedProjects = unstable_cache(
+  async () => {
+    const client = getServiceSupabase();
+    if (!client) throw new Error('Missing Supabase config');
+
+    const { data, error } = await client
+      .from('projects')
+      .select('id, project_name')
+      .order('project_name', { ascending: true })
+      .limit(100);
+
+    if (error) throw error;
+    return data || [];
+  },
+  ['mobile-api-projects-v1'],
+  {
+    revalidate: ONE_YEAR_SECONDS,
+    tags: [CACHE_TAGS.PROJECTS],
+  }
+);
+
+export const getCachedNewRecordBootstrap = unstable_cache(
+  async () => {
+    const client = getServiceSupabase();
+    if (!client) throw new Error('Missing Supabase config');
+
+    const fetchAllProjects = async () => {
+      const batchSize = 1000;
+      const allProjects: any[] = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await client
+          .from('projects')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(from, from + batchSize - 1);
+        if (error || !data || data.length === 0) break;
+        allProjects.push(...data);
+        if (data.length < batchSize) break;
+        from += batchSize;
+      }
+      return allProjects;
+    };
+
+    const [customerTypes, productCategories, projects, projectTypes] =
+      await Promise.all([
+        client.from('customer_types').select('*').order('created_at'),
+        client.from('product_categories').select('*').order('created_at'),
+        fetchAllProjects(),
+        client.from('project_types').select('*').order('id'),
+      ]);
+
+    return {
+      customer_types: customerTypes.data || [],
+      product_categories: productCategories.data || [],
+      projects: projects || [],
+      project_types: projectTypes.data || [],
+    };
+  },
+  ['mobile-api-new-record-bootstrap-v1'],
+  {
+    revalidate: ONE_YEAR_SECONDS,
+    tags: [CACHE_TAGS.PROJECTS, CACHE_TAGS.MASTER_DATA],
+  }
+);
+
+export const getCachedPoolFilters = unstable_cache(
+  async () => {
+    const client = getServiceSupabase();
+    if (!client) throw new Error('Missing Supabase config');
+
+    const [categoriesRes, projectTypesRes, profilesRes] = await Promise.all([
+      client.from('product_categories').select('name').order('name'),
+      client.from('project_types').select('name').order('name'),
+      client
+        .from('profiles')
+        .select('full_name')
+        .not('full_name', 'is', null)
+        .order('full_name'),
+    ]);
+
+    return {
+      categories: categoriesRes.data?.map((c: any) => c.name) || [],
+      projectTypes: projectTypesRes.data?.map((p: any) => p.name) || [],
+      saleNames: profilesRes.data?.map((p: any) => p.full_name) || [],
+    };
+  },
+  ['mobile-api-pool-filters-v1'],
+  {
+    revalidate: ONE_YEAR_SECONDS,
+    tags: [CACHE_TAGS.MASTER_DATA, CACHE_TAGS.POOL_PROJECTS],
+  }
+);
+
+export interface PoolProjectsCacheParams {
+  page: number;
+  limit: number;
+  scope: string;
+  userId: string;
+  teamId: string;
+  searchKeyword: string;
+  categories: string;
+  sales: string;
+  types: string;
+  areas: string;
+  dateRange: string;
+  isImportant: boolean;
+}
+
+export async function getCachedPoolProjects(params: PoolProjectsCacheParams) {
+  // Include scope owner ONLY when needed so 'all' shares one cache entry across authorized users,
+  // 'team' shares within the same team, and 'mine' is isolated per user.
+  const scopeOwnerKey =
+    params.scope === 'mine'
+      ? `u:${params.userId}`
+      : params.scope === 'team'
+        ? `t:${params.teamId || 'none'}`
+        : 'all';
+
+  // Include current Bangkok date when a relative dateRange filter is active
+  const dateKey = params.dateRange
+    ? new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
+    : '';
+
+  const keyParts = [
+    'mobile-api-pool-projects-v1',
+    `sc:${params.scope}:${scopeOwnerKey}`,
+    `p:${params.page}`,
+    `l:${params.limit}`,
+    `q:${params.searchKeyword.trim().toLowerCase()}`,
+    `cat:${params.categories}`,
+    `sal:${params.sales}`,
+    `typ:${params.types}`,
+    `ar:${params.areas}`,
+    `dr:${params.dateRange}:${dateKey}`,
+    `imp:${params.isImportant ? '1' : '0'}`,
+  ];
+
+  const cachedFn = unstable_cache(
+    async () => {
+      const client = getServiceSupabase();
+      if (!client) throw new Error('Missing Supabase config');
+
+      const from = (params.page - 1) * params.limit;
+      const to = from + params.limit - 1;
+
+      const selectCategories = params.categories
+        ? 'product_categories!inner(name)'
+        : 'product_categories(name)';
+      const selectProjectTypes = params.types
+        ? 'project_types!inner(name)'
+        : 'project_types(name)';
+      const selectProfiles = params.sales
+        ? 'profiles!inner(full_name, teams(team_name))'
+        : 'profiles(full_name, teams(team_name))';
+
+      let query = client
+        .from('order_items')
+        .select(
+          `
+          *,
+          ${selectCategories},
+          order_item_projects!inner(
+            id,
+            area_sqm,
+            project_name,
+            is_important,
+            project_type_id,
+            queue_level,
+            project_year,
+            ${selectProjectTypes},
+            account_developer,
+            contact_developer,
+            account_architecture,
+            contact_architecture,
+            account_interior,
+            contact_interior,
+            account_contractor,
+            contact_contractor,
+            is_deleted
+          ),
+          orders!inner(
+            id,
+            created_at,
+            customer_name,
+            phone,
+            customer_types(name),
+            is_synced,
+            audit_log,
+            admin_edits,
+            user_id,
+            team_id,
+            ${selectProfiles},
+            companies(name, customer_types(name))
+          )
+        `,
+          { count: 'exact' }
+        )
+        .eq('order_item_projects.is_deleted', false)
+        .order('created_at', { ascending: false });
+
+      if (params.scope === 'mine') {
+        query = query.eq('orders.user_id', params.userId);
+      } else if (params.scope === 'team' && params.teamId) {
+        query = query.eq('orders.team_id', params.teamId);
+      }
+
+      if (params.searchKeyword.trim() !== '') {
+        const kw = params.searchKeyword.trim();
+        query = query.or(
+          `project_name.ilike.%${kw}%,account_developer.ilike.%${kw}%,account_architecture.ilike.%${kw}%,account_interior.ilike.%${kw}%,account_contractor.ilike.%${kw}%`,
+          { foreignTable: 'order_item_projects' }
+        );
+      }
+
+      if (params.categories) {
+        query = query.in('product_categories.name', params.categories.split(','));
+      }
+
+      if (params.sales) {
+        query = query.in('orders.profiles.full_name', params.sales.split(','));
+      }
+
+      if (params.types) {
+        query = query.in(
+          'order_item_projects.project_types.name',
+          params.types.split(',')
+        );
+      }
+
+      if (params.isImportant) {
+        query = query.eq('order_item_projects.is_important', true);
+      }
+
+      if (params.dateRange) {
+        const now = new Date();
+        let daysToSubtract = 0;
+
+        if (params.dateRange === '7 วันล่าสุด') daysToSubtract = 7;
+        else if (params.dateRange === '14 วันล่าสุด') daysToSubtract = 14;
+        else if (params.dateRange === '30 วันล่าสุด') daysToSubtract = 30;
+
+        if (daysToSubtract > 0) {
+          now.setDate(now.getDate() - daysToSubtract);
+          query = query.gte('orders.created_at', now.toISOString());
+        }
+      }
+
+      if (params.areas) {
+        const areaArray = params.areas.split(',');
+        const orConditions: string[] = [];
+
+        for (const range of areaArray) {
+          if (range === 'น้อยกว่า 50 sq.m.') orConditions.push('area_sqm.lt.50');
+          else if (range === '50 - 200 sq.m.')
+            orConditions.push('and(area_sqm.gte.50,area_sqm.lte.200)');
+          else if (range === '201 - 500 sq.m.')
+            orConditions.push('and(area_sqm.gte.201,area_sqm.lte.500)');
+          else if (range === 'มากกว่า 500 sq.m.') orConditions.push('area_sqm.gt.500');
+        }
+
+        if (orConditions.length > 0) {
+          query = query.or(orConditions.join(','), {
+            foreignTable: 'order_item_projects',
+          });
+        }
+      }
+
+      const { data, count, error } = await query.range(from, to);
+      if (error) throw error;
+
+      const normalizedData = (data || []).map((item: any) => {
+        if (item.orders) {
+          const projects = Array.isArray(item.order_item_projects)
+            ? item.order_item_projects
+            : [];
+          let fallbackComp = '';
+          for (const p of projects) {
+            fallbackComp =
+              p.account_developer ||
+              p.account_architecture ||
+              p.account_interior ||
+              p.account_contractor ||
+              '';
+            if (fallbackComp) break;
+          }
+
+          const existingCompanyName = item.orders.companies?.name || '';
+          const effectiveCompanyName = existingCompanyName || fallbackComp;
+          const customerName = (item.orders.customer_name || '').trim();
+
+          const finalName = effectiveCompanyName || customerName;
+
+          if (finalName) {
+            item.orders.companies = {
+              ...(item.orders.companies || {}),
+              name: finalName,
+            };
+          }
+        }
+        return item;
+      });
+
+      return {
+        data: normalizedData,
+        total: count,
+        page: params.page,
+        limit: params.limit,
+      };
+    },
+    keyParts,
+    {
+      revalidate: ONE_YEAR_SECONDS,
+      tags: [CACHE_TAGS.POOL_PROJECTS],
+    }
+  );
+
+  return cachedFn();
 }

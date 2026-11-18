@@ -1,8 +1,10 @@
 // app/api/v1/orders/route.ts
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import * as admin from 'firebase-admin';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { CACHE_TAGS, getCachedNewRecordBootstrap } from '@/app/lib/public-cache';
 
 // ==================================================
 // ☁️ Cloudflare R2 Client Initialization
@@ -51,38 +53,11 @@ const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-async function fetchAllProjects() {
-  const batchSize = 1000;
-  let allProjects: any[] = [];
-  let from = 0;
-  while (true) {
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .range(from, from + batchSize - 1);
-    if (error || !data || data.length === 0) break;
-    allProjects.push(...data);
-    if (data.length < batchSize) break;
-    from += batchSize;
-  }
-  return allProjects;
-}
-
 export async function GET() {
   try {
-    const [customerTypes, productCategories, projects, projectTypes] = await Promise.all([
-      supabase.from('customer_types').select('*').order('created_at'),
-      supabase.from('product_categories').select('*').order('created_at'),
-      fetchAllProjects(),
-      supabase.from('project_types').select('*').order('id'),
-    ]);
-
-    return NextResponse.json({
-      customer_types: customerTypes.data || [],
-      product_categories: productCategories.data || [],
-      projects: projects || [],
-      project_types: projectTypes.data || []
+    const data = await getCachedNewRecordBootstrap();
+    return NextResponse.json(data, {
+      headers: { 'Cache-Control': 'private, no-store' },
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -506,6 +481,11 @@ export async function POST(request: Request) {
     } catch (err) {
       console.error('[FCM] Error process notifications:', err);
     }
+
+    // Auto-purge Pool, Projects, and Companies server caches immediately on New Record submit
+    revalidateTag(CACHE_TAGS.POOL_PROJECTS, { expire: 0 });
+    revalidateTag(CACHE_TAGS.PROJECTS, { expire: 0 });
+    revalidateTag(CACHE_TAGS.COMPANIES, { expire: 0 });
 
     return NextResponse.json({ success: true, orderId: order.id });
 

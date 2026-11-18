@@ -1,6 +1,7 @@
 // app/api/v1/poolprojects/filters/route.ts
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { getCachedPoolFilters } from '@/app/lib/public-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,32 +18,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'กรุณาล็อกอินก่อนเข้าใช้งาน' }, { status: 401 });
     }
 
-    // 1. ดึงประเภทสินค้าทั้งหมด
-    const { data: categories } = await supabase
-      .from('product_categories')
-      .select('name')
-      .order('name');
+    const {
+      data: { user },
+    } = await supabase.auth.getUser(token);
+    if (!user) {
+      return NextResponse.json({ error: 'Token ไม่ถูกต้องหรือหมดอายุ' }, { status: 401 });
+    }
 
-    // 2. ดึงประเภทโครงการทั้งหมด
-    const { data: projectTypes } = await supabase
-      .from('project_types')
-      .select('name')
-      .order('name');
+    const filters = await getCachedPoolFilters();
 
-    // 3. ดึงชื่อคนทั้งหมด (หรือเซลล์) ใน profiles
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .not('full_name', 'is', null)
-      .order('full_name');
-
-    // จัดรูปแบบข้อมูลส่งกลับไปให้ Flutter
-    return NextResponse.json({
-      categories: categories?.map(c => c.name) || [],
-      projectTypes: projectTypes?.map(p => p.name) || [],
-      saleNames: profiles?.map(p => p.full_name) || [],
+    return NextResponse.json(filters, {
+      headers: { 'Cache-Control': 'private, no-store' },
     });
-
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
