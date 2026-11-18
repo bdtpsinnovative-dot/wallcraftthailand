@@ -82,8 +82,6 @@ export async function GET(request: Request) {
       supplier: item.supplier || '',
       linkFile: item.link_file || '',
       linkFileUrl: (item.link_file_url && item.link_file_url.trim()) ? item.link_file_url : (item.link_file || ''),
-      amountYuan: item.amount_yuan || '',
-      amountDollar: item.amount_dollar || '',
       etd: item.etd || '',
       brand: item.brand || '',
       orderNo: item.order_no || '',
@@ -96,6 +94,7 @@ export async function GET(request: Request) {
       shippingMethod: item.shipping_method || '',
       deliveredDate: item.delivered_date || '',
       dateOrder: item.date_order || '',
+      lastUpdate: item.last_update || '',
       createdAt: item.created_at || '',
       updatedAt: item.updated_at || '',
     }));
