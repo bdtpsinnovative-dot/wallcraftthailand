@@ -72,10 +72,15 @@ export function middleware(request: NextRequest) {
       (request.method === 'GET' || request.method === 'HEAD') &&
       CACHEABLE_PUBLIC_API_PATHS.has(request.nextUrl.pathname)
 
-    res.headers.set(
-      'Cloudflare-CDN-Cache-Control',
-      isCacheablePublicApi ? CLOUDFLARE_PUBLIC_CACHE_HEADER : 'no-store'
-    )
+    const isProductsApi = request.nextUrl.pathname === '/api/v1/products'
+    if (isProductsApi) {
+      res.headers.set('Cloudflare-CDN-Cache-Control', 'public, max-age=60, stale-while-revalidate=300')
+    } else {
+      res.headers.set(
+        'Cloudflare-CDN-Cache-Control',
+        isCacheablePublicApi ? CLOUDFLARE_PUBLIC_CACHE_HEADER : 'no-store'
+      )
+    }
     return res
   }
 

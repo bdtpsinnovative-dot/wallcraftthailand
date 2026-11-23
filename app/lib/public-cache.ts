@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache';
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/app/lib/supabase';
+import { getProductViewCounts } from '@/app/lib/product-views';
 
 // 1 year in seconds (365 days)
 export const ONE_YEAR_SECONDS = 31536000;
@@ -20,6 +21,11 @@ export const CACHE_TAGS = {
 export const CLOUDFLARE_PUBLIC_API_HEADERS: Record<string, string> = {
   'Cache-Control': 'public, max-age=0, s-maxage=31536000, stale-while-revalidate=86400',
   'Cloudflare-CDN-Cache-Control': 'public, max-age=31536000, stale-while-revalidate=86400',
+};
+
+export const CLOUDFLARE_MOBILE_PRODUCTS_HEADERS: Record<string, string> = {
+  'Cache-Control': 'public, max-age=0, s-maxage=60, stale-while-revalidate=300',
+  'Cloudflare-CDN-Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
 };
 
 export function productCacheTag(productId: string | number): string {
@@ -167,90 +173,147 @@ export interface MobileProductsQuery {
   collectionsGroup: string;
 }
 
-export async function getCachedMobileProducts(params: MobileProductsQuery) {
-  const keyParts = [
-    'mobile-api-products-v1',
-    `kw:${params.keyword.trim().toLowerCase()}`,
-    `p:${params.page}`,
-    `l:${params.limit}`,
-    `c:${params.collection.trim().toLowerCase()}`,
-    `cg:${params.collectionsGroup.trim().toLowerCase()}`,
-  ];
+// 🌟 อัลกอริทึมจัดลำดับสินค้า: จัดกลุ่มสินค้าไฮไลท์ และแยกอุปกรณ์เสริมออกจากหน้าแรก
+const TIER_1_COLLECTIONS = new Set([
+  'tarra stone', 'panorama', 'strength rock', 'geo form', 'geoform',
+  'urban form', 'nature grain', 'rust', 'finesse', 'wood', 'metalic',
+  'metallic', 'fabric', 'leather', 'velvet', 'signature', 'stone',
+  'semi outdoor', 'decor panel', 'solid panel', 'hollow core', 'hollow core panel'
+]);
 
-  const cachedFn = unstable_cache(
-    async () => {
-      const supabaseUrl = process.env.SUPABASE_URL;
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      if (!supabaseUrl || !supabaseServiceKey) {
-        throw new Error('Server Config Error: Missing Supabase Env Variables');
-      }
+const ACCESSORY_COLLECTIONS = new Set([
+  'accessories', 'profile', 'pvc profile', 'aluminium & led'
+]);
 
-      const offset = (params.page - 1) * params.limit;
-      let url = `${supabaseUrl}/rest/v1/products?select=*,product_variants(*)&order=id.asc&limit=${params.limit}&offset=${offset}`;
+function getProductBaseScore(collection: string, minPrice: number): number {
+  const col = (collection || '').toLowerCase().trim();
+  // สินค้า ฿0 หรือกลุ่ม Accessories อยู่ท้ายสุด
+  if (minPrice <= 0 || ACCESSORY_COLLECTIONS.has(col)) {
+    return 0;
+  }
+  // สินค้าหลัก / คอลเลกชัน Flagship ได้คะแนนตั้งต้น 1,000 คะแนน
+  if (TIER_1_COLLECTIONS.has(col)) {
+    return 1000;
+  }
+  return 500;
+}
 
-      if (params.keyword) {
-        const safeKeyword = encodeURIComponent(`*${params.keyword}*`);
-        url += `&or=(name.ilike.${safeKeyword},collection.ilike.${safeKeyword})`;
-      }
-
-      if (params.collection) {
-        url += `&collection=eq.${encodeURIComponent(params.collection)}`;
-      } else if (params.collectionsGroup) {
-        const formattedIn = params.collectionsGroup
-          .split(',')
-          .map((c) => `"${c.trim()}"`)
-          .join(',');
-        url += `&collection=in.(${encodeURIComponent(formattedIn)})`;
-      }
-
-      const response = await fetch(url, {
-        headers: {
-          apikey: supabaseServiceKey,
-          Authorization: `Bearer ${supabaseServiceKey}`,
-          'Content-Type': 'application/json',
-        },
-        cache: 'no-store',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Supabase Error: ${response.status}`);
-      }
-
-      const rawData = await response.json();
-
-      return rawData.map((item: any) => {
-        const variants = item.product_variants || [];
-        let minPrice = 0;
-        let maxPrice = 0;
-
-        if (variants.length > 0) {
-          const prices = variants.map((v: any) => Number(v.price || 0));
-          minPrice = Math.min(...prices);
-          maxPrice = Math.max(...prices);
-        }
-
-        const imageUrl =
-          item.image_url || (variants.length > 0 ? variants[0].variant_image : '');
-
-        return {
-          id: item.id,
-          name: item.name || 'ไม่มีชื่อสินค้า',
-          collection: item.collection || '',
-          image: imageUrl,
-          minPrice,
-          maxPrice,
-          variants,
-        };
-      });
-    },
-    keyParts,
-    {
-      revalidate: ONE_YEAR_SECONDS,
-      tags: [CACHE_TAGS.PRODUCTS, CACHE_TAGS.COLLECTIONS],
+// แคชสินค้าทั้งหมดจาก Supabase (ไม่ดึง embedding vector เพื่อความเร็วสูง < 800ms)
+const getAllMobileProducts = unstable_cache(
+  async () => {
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Server Config Error: Missing Supabase Env Variables');
     }
-  );
 
-  return cachedFn();
+    const selectQuery = 'id,name,collection,image_url,created_at,product_variants(id,sku,color,film,pattern,price,thickness_mm,width_mm,length_mm,variant_image,description)';
+    const url = `${supabaseUrl}/rest/v1/products?select=${encodeURIComponent(selectQuery)}`;
+
+    const response = await fetch(url, {
+      headers: {
+        apikey: supabaseServiceKey,
+        Authorization: `Bearer ${supabaseServiceKey}`,
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Supabase Error: ${response.status}`);
+    }
+
+    const rawData = await response.json();
+
+    return rawData.map((item: any) => {
+      const variants = item.product_variants || [];
+      let minPrice = 0;
+      let maxPrice = 0;
+
+      if (variants.length > 0) {
+        const prices = variants.map((v: any) => Number(v.price || 0));
+        minPrice = Math.min(...prices);
+        maxPrice = Math.max(...prices);
+      }
+
+      const imageUrl =
+        item.image_url || (variants.length > 0 ? variants[0].variant_image : '');
+
+      return {
+        id: item.id,
+        name: item.name || 'ไม่มีชื่อสินค้า',
+        collection: item.collection || '',
+        image: imageUrl,
+        minPrice,
+        maxPrice,
+        variants,
+      };
+    });
+  },
+  ['all-mobile-products-v3'],
+  {
+    revalidate: ONE_YEAR_SECONDS,
+    tags: [CACHE_TAGS.PRODUCTS, CACHE_TAGS.COLLECTIONS],
+  }
+);
+
+export async function getCachedMobileProducts(params: MobileProductsQuery) {
+  const allProducts = await getAllMobileProducts();
+  const views = await getProductViewCounts();
+
+  let filtered = allProducts;
+
+  // กรองตามคำค้นหา (Keyword)
+  if (params.keyword) {
+    const kw = params.keyword.trim().toLowerCase();
+    filtered = filtered.filter(
+      (p: any) =>
+        (p.name && p.name.toLowerCase().includes(kw)) ||
+        (p.collection && p.collection.toLowerCase().includes(kw))
+    );
+  }
+
+  // กรองตามหมวดหมู่ (Collection)
+  if (params.collection) {
+    const targetCol = params.collection.trim().toLowerCase();
+    filtered = filtered.filter(
+      (p: any) => p.collection && p.collection.trim().toLowerCase() === targetCol
+    );
+  } else if (params.collectionsGroup) {
+    const group = new Set(
+      params.collectionsGroup.split(',').map((c) => c.trim().toLowerCase())
+    );
+    filtered = filtered.filter(
+      (p: any) => p.collection && group.has(p.collection.trim().toLowerCase())
+    );
+  }
+
+  // 🌟 เรียงลำดับตามความนิยม (Algorithm: คะแนนพื้นฐาน + ยอดกดดูบ่อย * 50)
+  filtered = [...filtered].sort((a: any, b: any) => {
+    const viewsA = views[a.id] || 0;
+    const viewsB = views[b.id] || 0;
+    const scoreA = getProductBaseScore(a.collection, a.minPrice) + viewsA * 50;
+    const scoreB = getProductBaseScore(b.collection, b.minPrice) + viewsB * 50;
+
+    // 1. เรียงตามคะแนนรวม (ยอดดู + ความสำคัญของกลุ่มสินค้า)
+    if (scoreB !== scoreA) {
+      return scoreB - scoreA;
+    }
+    // 2. เรียงตามยอดเข้าชมสินค้าโดยตรง
+    if (viewsB !== viewsA) {
+      return viewsB - viewsA;
+    }
+    // 3. สินค้าที่มีราคาแสดงก่อนสินค้าราคา 0
+    if ((b.minPrice > 0 ? 1 : 0) !== (a.minPrice > 0 ? 1 : 0)) {
+      return (b.minPrice > 0 ? 1 : 0) - (a.minPrice > 0 ? 1 : 0);
+    }
+    // 4. สินค้าใหม่มาก่อน (ID ล่าสุด)
+    return b.id - a.id;
+  });
+
+  // แบ่งหน้า (Pagination)
+  const offset = (params.page - 1) * params.limit;
+  return filtered.slice(offset, offset + params.limit);
 }
 
 export const getCachedMobileCollections = unstable_cache(

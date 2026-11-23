@@ -1,7 +1,7 @@
 // app/api/v1/products/route.ts
 import { NextResponse } from 'next/server';
 import {
-  CLOUDFLARE_PUBLIC_API_HEADERS,
+  CLOUDFLARE_MOBILE_PRODUCTS_HEADERS,
   getCachedMobileProducts,
 } from '@/app/lib/public-cache';
 
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       },
       {
         status: 200,
-        headers: CLOUDFLARE_PUBLIC_API_HEADERS,
+        headers: CLOUDFLARE_MOBILE_PRODUCTS_HEADERS,
       }
     );
   } catch (error: any) {
