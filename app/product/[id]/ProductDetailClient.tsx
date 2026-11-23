@@ -81,15 +81,47 @@ export default function ProductDetailClient({ product, variants, initialStyle }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // บันทึกยอดการเปิดดูสินค้า (View Count Tracking) ทั้งจาก Web และ Mobile
+  // บันทึกยอดการเปิดดูสินค้า (View Count & Engagement Time Tracking) ฝั่ง Web
   useEffect(() => {
     if (!product?.id) return;
-    fetch('/api/v1/products/view', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productId: product.id }),
-    }).catch(() => {});
-  }, [product?.id]);
+    const startTime = Date.now();
+    let sent = false;
+
+    const sendEngagement = () => {
+      if (sent) return;
+      sent = true;
+      const durationSeconds = Math.round((Date.now() - startTime) / 1000);
+      const isIdle = durationSeconds > 180;
+      const effectiveDuration = isIdle ? 180 : Math.max(durationSeconds, 2);
+
+      const payload = JSON.stringify({
+        productId: product.id,
+        productName: product.name || 'ไม่มีชื่อสินค้า',
+        collection: product.collection || 'ทั่วไป',
+        viewerType: 'customer',
+        durationSeconds: effectiveDuration,
+        isIdle,
+        device: 'web',
+      });
+
+      if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+        navigator.sendBeacon('/api/v1/products/view', new Blob([payload], { type: 'application/json' }));
+      } else {
+        fetch('/api/v1/products/view', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+          keepalive: true,
+        }).catch(() => {});
+      }
+    };
+
+    window.addEventListener('beforeunload', sendEngagement);
+    return () => {
+      window.removeEventListener('beforeunload', sendEngagement);
+      sendEngagement();
+    };
+  }, [product?.id, product?.name, product?.collection]);
 
   // useEffect ต่างๆ ปล่อยไว้เหมือนเดิมครับ
   useEffect(() => {
