@@ -114,7 +114,32 @@ export async function GET(request: Request) {
 
     if (error) throw error;
 
-    const normalizedPlans = (visitPlans || []).map((plan: any) => {
+    const includeCancelled = searchParams.get('include_cancelled') === 'true';
+    const includeAutoDropped = searchParams.get('include_auto_dropped') === 'true';
+
+    // 🤖 กฎคำนวณออโต้ 20 วัน: แพลนที่เลยกำหนดเกิน 20 วัน และยังคงสถานะ pending (ไม่มีการเช็คอิน)
+    // ถือว่าเซลล์ปล่อยงานไปแล้ว -> ระบบจะซ่อนจากแอปมือถืออัตโนมัติ เพื่อไม่ให้รกหน้าจอเซลล์
+    const AUTO_DROP_DAYS = 20;
+    const autoDropCutoff = new Date();
+    autoDropCutoff.setDate(autoDropCutoff.getDate() - AUTO_DROP_DAYS);
+    const autoDropCutoffStr = autoDropCutoff.toISOString().split('T')[0];
+
+    const filteredPlans = (visitPlans || []).filter((plan: any) => {
+      // 1. ถ้าถูกตั้งเป็น cancelled (ซ่อน) -> ซ่อนจากแอป
+      if (!includeCancelled && plan.status === 'cancelled') {
+        return false;
+      }
+      // 2. ถ้าเป็น pending และเลยกำหนดเกิน 20 วัน -> ซ่อนจากแอปอัตโนมัติ
+      if (!includeAutoDropped && plan.status === 'pending' && plan.planned_date) {
+        const pDateStr = String(plan.planned_date).split('T')[0];
+        if (pDateStr < autoDropCutoffStr) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    const normalizedPlans = filteredPlans.map((plan: any) => {
       const profile = Array.isArray(plan.profiles)
         ? plan.profiles[0]
         : plan.profiles;
@@ -333,6 +358,7 @@ export async function PATCH(request: Request) {
       project_type_id: body.project_type_id || null,
       product_category_id: body.product_category_id || null,
     };
+    if (body.status) updateData.status = body.status;
     if (isAdmin && body.user_id) updateData.user_id = body.user_id;
 
     let query = supabase.from('visit_plans').update(updateData).eq('id', id);
