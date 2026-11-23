@@ -81,6 +81,16 @@ export default function ProductDetailClient({ product, variants, initialStyle }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // บันทึกยอดการเปิดดูสินค้า (View Count Tracking) ทั้งจาก Web และ Mobile
+  useEffect(() => {
+    if (!product?.id) return;
+    fetch('/api/v1/products/view', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ productId: product.id }),
+    }).catch(() => {});
+  }, [product?.id]);
+
   // useEffect ต่างๆ ปล่อยไว้เหมือนเดิมครับ
   useEffect(() => {
     if (selectedPattern && groupedData[selectedPattern]) {

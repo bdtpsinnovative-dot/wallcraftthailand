@@ -80,7 +80,19 @@ export async function getCachedCollectionProducts(collectionName: string) {
     }
   );
 
-  return cachedFn();
+  const res = await cachedFn();
+  if (res.products && res.products.length > 0) {
+    const views = await getProductViewCounts();
+    const sorted = [...res.products].sort((a: any, b: any) => {
+      const viewsA = views[a.id] || 0;
+      const viewsB = views[b.id] || 0;
+      if (viewsB !== viewsA) return viewsB - viewsA;
+      return b.id - a.id;
+    });
+    return { ...res, products: sorted };
+  }
+
+  return res;
 }
 
 export async function getCachedProduct(productId: string) {
