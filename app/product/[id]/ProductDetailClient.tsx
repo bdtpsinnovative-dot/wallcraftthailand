@@ -304,8 +304,13 @@ export default function ProductDetailClient({ product, variants, initialStyle }:
               </select>
 
               <div className="flex items-baseline justify-between mb-2">
-                 <div className="text-[2.5rem] font-['Playfair_Display'] text-[#c6a87c]">
-                    {selectedVariant?.price ? `฿${Number(selectedVariant.price).toLocaleString()}` : 'Contact Us'}
+                 <div className="text-[2.5rem] font-['Playfair_Display'] text-[#c6a87c] flex items-baseline gap-2">
+                    {selectedVariant?.price ? (
+                      <>
+                        <span>฿{Number(selectedVariant.price).toLocaleString()}</span>
+                        <span className="text-lg md:text-xl font-['Playfair_Display'] text-[#c6a87c]/80 font-normal">/ Sqm</span>
+                      </>
+                    ) : 'Contact Us'}
                  </div>
               </div>
               <div className="text-zinc-500 text-xs mb-8 tracking-wider">SKU: <span className="text-white">{selectedVariant?.sku || '-'}</span></div>
